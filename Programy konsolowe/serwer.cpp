@@ -128,6 +128,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					zakonczWiadomoscZnakiemKoncaLini(buffer);
 					
 					// wyslanie wiadomosci
+					count = strlen(buffer);
 					write(clientFd, buffer, count);
 				}
 			} else if(kod == 3) {
@@ -351,5 +352,6 @@ void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuff
 	zakonczWiadomoscZnakiemKoncaLini(buffer);
 	
 	// wyslanie wiadomosci
+	count = strlen(buffer);
 	write(clientFd, buffer, count);
 }
