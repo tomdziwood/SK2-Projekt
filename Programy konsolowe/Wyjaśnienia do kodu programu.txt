@@ -1,0 +1,22 @@
+////-------- Komunikacja od klienta dla serwera --------\\\\
+01 - polecenie utworzenia nowego pokoju gry
+02 - polecenie odœwie¿enia listy dostêpnych gier
+03 - polecenie do³¹czenia siê do podanego pokoju gry
+
+////-------- Komunikacja od serwera dla klienta --------\\\\
+01 - podanie nazwy dostepnego serwera
+02 - podanie stanu gry
+03 - podanie wymiarow planszy
+04 - podanie liczby min pozostalych do odznaczenia
+05 - podanie stanu pola planszy w formacie ("%d %d %d", numer wiersza, numer kolumny, stan pola planszy mniejszy ni¿ 3)
+06 - podanie wartoœci w odkrytym polu w formacie ("%d %d %d", numer wiersza, numer kolumny, wartosc pola planszy)
+
+////-------- Stan pola planszy --------\\\\
+0 - zakryte
+1 - odznaczone flag¹
+2 - odznaczone znakiem zapytania
+3 - odkryte
+
+////-------- Stan gry --------\\\\
+0 - koniec gry
+1 - gra w toku
