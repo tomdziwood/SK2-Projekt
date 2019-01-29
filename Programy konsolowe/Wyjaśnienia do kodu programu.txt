@@ -31,6 +31,8 @@
 		Format: ("05 %d %d %d", numer wiersza, numer kolumny, stan pola planszy mniejszy ni¿ 3)
 06 - podanie wartoœci w odkrytym polu
 		Format: ("06 %d %d %d", numer wiersza, numer kolumny, wartoœæ pola planszy)
+07 - polecenie rozpoczecia nowej gry
+		Format: ("07")
 
 ////-------- Stan pola planszy --------\\\\
 0 - zakryte
