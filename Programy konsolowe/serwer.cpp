@@ -21,7 +21,7 @@ struct room {
 	char nazwa[256];
 	int id, liczbaGraczy, gracze[16];
 	int **plansza, **stanPlanszy, wysokoscPlanszy, szerokoscPlanszy;
-	int liczbaMin, liczbaMinDoOdznaczenia, stanGry;
+	int liczbaMin, liczbaMinDoOznaczenia, stanGry;
 };
 
 // server socket
@@ -59,6 +59,10 @@ void itoa(int liczba, char *tekst, int podstawa);
 
 void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuffer);
 
+void wyslijDoWszystkich(room *biezacyPokoj, char * buffer, int count);
+
+void wyslijLiczbyDoWszystkich(room *biezacyPokoj, int *tablica, int n, char *buffer, char *tmpBuffer);
+
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
 	long long int kod;
@@ -89,6 +93,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 		} else if(count >= 3) {
 			kod = strtol(buffer, &tresc, 10);
 
+			
 			if(kod == 1) {
 				// klient prosi o utworzenie nowego pokoju gry
 				while(tresc[0] == ' ') {
@@ -114,7 +119,6 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("nazwa pokoju po zmianie: |%s|\n", biezacyPokoj->nazwa);
 				printf("nazwa pokoju w globalnej liście po: |%s|\n", pokojeGier.back().nazwa);*/
 				
-				
 				// wyslanie informacji o stanie gry
 				strcpy(buffer, "02");
 				tablica[0] = biezacyPokoj->stanGry;
@@ -128,15 +132,17 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				
 				// wyslanie informacji o pozostalej liczbie min do odznaczenia
 				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOdznaczenia;
+				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
 				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
 				
 				printf("Dodano pokoj.\n");
+				
+				
 			} else if(kod == 2) {
 				// klient prosi o otrzymanie spisu dostepnych pokoi gier
 				strcpy(buffer, "01 ");
-				
 				printf("Trwa wysylanie listy pokoi...\n");
+				
 				std::list<room>::iterator it;
 				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
 					// zapisanie do wiadomosci id pokoju
@@ -156,9 +162,12 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					write(clientFd, buffer, count);
 				}
 				printf("Zakonczono wysylanie listy pokoi.\n");
+				
+				
 			} else if(kod == 3) {
 				// klient prosi o dolaczenie go do wskazanego pokoju (o danym id)
 				i = strtol(tresc, NULL, 10);
+				printf("Trwa wysylanie danych wybranego pokoju do klienta...\n");
 				
 				std::list<room>::iterator it;
 				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
@@ -172,7 +181,6 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
-				printf("Trwa wysylanie danych wybranego pokoju do klienta...\n");
 				dodajGraczaDoPokoju(*it, clientFd);
 				biezacyPokoj = &(*it);
 				
@@ -189,7 +197,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				
 				// wyslanie informacji o pozostalej liczbie min do odznaczenia
 				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOdznaczenia;
+				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
 				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
 				
 				// wyslanie informacji o zmodyfikowanych polach
@@ -214,10 +222,82 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				}
 				
 				printf("Wysylanie danych zakonczone.\n");
+				
+				
+			} else if(kod == 4) {
+				// klient prosi o oznaczenie flaga danego pola
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
+				
+				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
+					printf("Nie mozna oznaczyc flaga wskazanego pola.\n");
+					continue;
+				}
+				
+				biezacyPokoj->stanPlanszy[row][col] = 1;
+				biezacyPokoj->liczbaMinDoOznaczenia--;
+				
+				// wyslanie informacji o pozostalej liczbie min do odznaczenia
+				strcpy(buffer, "04");
+				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+				
+				// wyslanie informacji o oznaczonym polu
+				strcpy(buffer, "05");
+				tablica[0] = row;
+				tablica[1] = col;
+				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+				
+				
+			} else if(kod == 5) {
+				// klient prosi o oznaczenie znakiem zapytania danego pola
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
+				
+				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
+					printf("Nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
+					continue;
+				}
+				
+				biezacyPokoj->stanPlanszy[row][col] = 2;
+				biezacyPokoj->liczbaMinDoOznaczenia++;
+				
+				// wyslanie informacji o pozostalej liczbie min do odznaczenia
+				strcpy(buffer, "04");
+				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+				
+				// wyslanie informacji o oznaczonym polu
+				strcpy(buffer, "05");
+				tablica[0] = row;
+				tablica[1] = col;
+				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+				
+				
+			} else if(kod == 6) {
+				// klient prosi o nieoznaczenie danego pola
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
+				
+				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
+					printf("Nie mozna nieoznaczyc wskazanego pola.\n");
+					continue;
+				}
+				
+				biezacyPokoj->stanPlanszy[row][col] = 0;
+				
+				// wyslanie informacji o oznaczonym polu
+				strcpy(buffer, "05");
+				tablica[0] = row;
+				tablica[1] = col;
+				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 			}
-
-			// broadcast the message
-			sendToAllBut(clientFd, buffer, count);
 		}
 	}
 }
@@ -280,24 +360,8 @@ void ctrl_c(int){
 	for(int clientFd : clientFds)
 		close(clientFd);
 	close(servFd);
-	printf("Closing server\n");
+	printf("\nClosing server\n");
 	exit(0);
-}
-
-void sendToAllBut(int fd, char * buffer, int count){
-	int res;
-	decltype(clientFds) bad;
-	for(int clientFd : clientFds){
-		if(clientFd == fd) continue;
-		res = write(clientFd, buffer, count);
-		if(res!=count)
-			bad.insert(clientFd);
-	}
-	for(int clientFd : bad){
-		printf("removing in sendToAllBut %d\n", clientFd);
-		clientFds.erase(clientFd);
-		close(clientFd);
-	}
 }
 
 void dodajGraczaDoPokoju(room &pokoj, int clientFd) {
@@ -315,7 +379,7 @@ void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int li
 	pokoj.wysokoscPlanszy = wysokoscPlanszy;
 	pokoj.szerokoscPlanszy = szerokoscPlanszy;
 	pokoj.liczbaMin = liczbaMin;
-	pokoj.liczbaMinDoOdznaczenia = liczbaMin;
+	pokoj.liczbaMinDoOznaczenia = liczbaMin;
 	pokoj.stanGry = 1;
 	
 	pokoj.stanPlanszy = new int*[wysokoscPlanszy];
@@ -401,4 +465,30 @@ void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuff
 	// wyslanie wiadomosci
 	count = strlen(buffer);
 	write(clientFd, buffer, count);
+}
+
+void wyslijDoWszystkich(room *biezacyPokoj, char * buffer, int count){
+	int i;
+	for(i = 0; i < biezacyPokoj->liczbaGraczy; i++) {
+		printf("Wysylam wiadomosc: |%s| do gracze[%d] = %d\n", buffer, i, biezacyPokoj->gracze[i]);
+		write(biezacyPokoj->gracze[i], buffer, count);
+	}
+}
+
+void wyslijLiczbyDoWszystkich(room *biezacyPokoj, int *tablica, int n, char *buffer, char *tmpBuffer) {
+	int count, i;
+	
+	for(i = 0; i < n; i++) {		
+		count = strlen(buffer);
+		buffer[count] = ' ';
+		itoa(tablica[i], tmpBuffer, 10);
+		strcpy(&buffer[count + 1], tmpBuffer);
+	}
+	
+	// zakonczenie wiadomosci znakiem konca lini
+	zakonczWiadomoscZnakiemKoncaLini(buffer);
+	
+	// wyslanie wiadomosci
+	count = strlen(buffer);
+	wyslijDoWszystkich(biezacyPokoj, buffer, count);
 }

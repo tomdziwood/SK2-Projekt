@@ -11,6 +11,12 @@
 		Format: ("05 %d %d", numer wiersza, numer kolumny)
 06 - polecenie nieoznaczenia pola
 		Format: ("06 %d %d", numer wiersza, numer kolumny)
+07 - polecenie odkrycia pola
+		Format: ("07 %d %d", numer wiersza, numer kolumny)
+08 - polecenie wyjœcia z pokoju
+		Format: ("08")
+09 - polecenie zrestartowania gry na danej planszy
+		Format: ("09")
 
 ////-------- Komunikacja od serwera dla klienta --------\\\\
 01 - podanie nazwy dostêpnego serwera
