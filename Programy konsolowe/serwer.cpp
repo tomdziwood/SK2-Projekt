@@ -100,8 +100,13 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					//tresc = &tresc[1];
 					tresc += sizeof(char);
 				}
-				
 				printf("Trwa dodawanie pokoju o nazwie: |%s|...\n", tresc);
+				
+				if(biezacyPokoj != NULL) {
+					printf("Blad - nie mozna utworzyc nowego pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+					continue;
+				}
+				
 				strcpy(tmpPokoj.nazwa, tresc);
 				tmpPokoj.id = liczbaGier;
 				tmpPokoj.liczbaGraczy = 0;
@@ -118,11 +123,6 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				strcpy(biezacyPokoj->nazwa, "lololo");
 				printf("nazwa pokoju po zmianie: |%s|\n", biezacyPokoj->nazwa);
 				printf("nazwa pokoju w globalnej liście po: |%s|\n", pokojeGier.back().nazwa);*/
-				
-				/*// wyslanie informacji o stanie gry
-				strcpy(buffer, "02");
-				tablica[0] = biezacyPokoj->stanGry;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);*/
 				
 				// wyslanie informacji o wysokosci i szerokosci planszy
 				strcpy(buffer, "03");
@@ -146,6 +146,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				// klient prosi o otrzymanie spisu dostepnych pokoi gier
 				strcpy(buffer, "01 ");
 				printf("Trwa wysylanie listy pokoi...\n");
+				
+				if(biezacyPokoj != NULL) {
+					printf("Blad - nie mozna pytac sie o spis dostepnych pokoi, skoro nadal sie gra w jednym z pokojow.\n");
+					continue;
+				}
 				
 				std::list<room>::iterator it;
 				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
@@ -172,6 +177,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				// klient prosi o dolaczenie go do wskazanego pokoju (o danym id)
 				i = strtol(tresc, NULL, 10);
 				printf("Trwa dolaczanie do wybranego pokoju...\n");
+				
+				if(biezacyPokoj != NULL) {
+					printf("Blad - nie mozna dolaczac sie do pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+					continue;
+				}
 				
 				std::list<room>::iterator it;
 				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
@@ -234,13 +244,23 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna zadac oznaczenia flagi, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
+				if(biezacyPokoj->stanGry != 1) {
+					printf("Blad - gra juz sie zakonczyla.\n");
+					continue;
+				}
+				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((biezacyPokoj->stanPlanszy[row][col] != 0) || (biezacyPokoj->stanGry != 1)) {
-					printf("Blad - nie mozna oznaczyc flaga wskazanego pola.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
+					printf("Blad - flage mozna oznaczyc tylko na nieoznaczonym polu.\n");
 					continue;
 				}
 				
@@ -268,13 +288,23 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna zadac oznaczenia znaku zapytania, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
+				if(biezacyPokoj->stanGry != 1) {
+					printf("Blad - gra juz sie zakonczyla.\n");
+					continue;
+				}
+				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((biezacyPokoj->stanPlanszy[row][col] != 1) || (biezacyPokoj->stanGry != 1)) {
-					printf("Blad - nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
+					printf("Blad - znak zapytania mozna oznaczyc tylko na polu oznaczonym flaga.\n");
 					continue;
 				}
 				
@@ -302,13 +332,23 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
+				if(biezacyPokoj->stanGry != 1) {
+					printf("Blad - gra juz sie zakonczyla.\n");
+					continue;
+				}
+				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((biezacyPokoj->stanPlanszy[row][col] != 2) || (biezacyPokoj->stanGry != 1)) {
-					printf("Blad - nie mozna nieoznaczyc wskazanego pola.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
+					printf("Blad - nieoznaczyc mozna tylko pole oznaczone znakiem zapytania.\n");
 					continue;
 				}
 				
@@ -330,13 +370,23 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
+				if(biezacyPokoj->stanGry != 1) {
+					printf("Blad - gra juz sie zakonczyla.\n");
+					continue;
+				}
+				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3) || (biezacyPokoj->stanGry != 1)) {
-					printf("Blad - nie mozna odkryc wskazanego pola.\n");
+				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
+					printf("Blad - odkryc mozna tylko pole nieoznaczone lub oznaczone znakiem zapytania.\n");
 					continue;
 				}
 				
@@ -405,6 +455,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				// klient prosi o wyjscie z biezacego pokoju
 				printf("Trwa opuszczanie pokoju...\n");
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna opuscic pokoju, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
 				i = 0;
 				while(biezacyPokoj->gracze[i] != clientFd) {
 					i++;
@@ -431,6 +486,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				// klient prosi o restartowanie planszy
 				printf("Trwa restartowanie planszy...\n");
 				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna restartowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
 				ustawNowaGre(*biezacyPokoj, biezacyPokoj->wysokoscPlanszy, biezacyPokoj->szerokoscPlanszy, biezacyPokoj->liczbaMin);
 				
 				// wyslanie polecenia rozpoczecia nowej gry
@@ -446,6 +506,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				count = strtol(tresc, &tresc, 10);
 				printf("Trwa ustawianie nowej gry...\n");
+				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna modyfikowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
 				
 				ustawNowaGre(*biezacyPokoj, row, col, count);
 				
@@ -509,7 +574,7 @@ int main(int argc, char ** argv){
 		clientFds.insert(clientFd);
 		
 		// tell who has connected
-		printf("\n//****** Nowe polaczenie z klientem: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
+		printf("\n//****** Nowe polaczenie z klientem: %s:%hu (fd: %d) ******\\\\\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
 		
 		// przekierowanie odczytywania wiadomosci od nowego klienta do osobnego watku
 		std::thread watek(odczytajWiadomosc, clientFd, clientAddr);
