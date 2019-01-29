@@ -234,13 +234,13 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
-					printf("Blad - nie mozna oznaczyc flaga wskazanego pola.\n");
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
+					printf("Blad - nie mozna oznaczyc flaga wskazanego pola.\n");
 					continue;
 				}
 				
@@ -382,6 +382,33 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
 				
 				printf("Zakonczono restartowanie planszy.\n");
+				
+				
+			} else if(kod == 10) {
+				// klient prosi o ustawienie nowej gry o nowych parametrach
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				count = strtol(tresc, &tresc, 10);
+				printf("Trwa ustawianie nowej gry...\n");
+				
+				ustawNowaGre(*biezacyPokoj, row, col, count);
+				
+				// wyslanie informacji o wysokosci i szerokosci planszy
+				strcpy(buffer, "03");
+				tablica[0] = biezacyPokoj->wysokoscPlanszy;
+				tablica[1] = biezacyPokoj->szerokoscPlanszy;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 2, buffer, tmpBuffer);
+				
+				// wyslanie informacji o pozostalej liczbie min do odznaczenia
+				strcpy(buffer, "04");
+				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+				
+				// wyslanie polecenia o rozpoczeciu nowej gry
+				strcpy(buffer, "07");
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+				
+				printf("Zakonczono ustawianie nowej gry.\n");
 			}
 		}
 	}
