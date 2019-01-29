@@ -72,7 +72,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 	
 	while(true)
 	{
-		// read a message
+		// odczytywanie wiadomosci od klienta
 		count = read(clientFd, buffer, 255);
 		i = count - 1;
 		while((i >= 0) && (buffer[i] == '\n')) {
@@ -86,7 +86,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 		printf("\\\\--------------------\n");
 
 		if(count < 1) {
-			printf("removing %d\n", clientFd);
+			printf("Usuwanie klienta %d\n", clientFd);
 			clientFds.erase(clientFd);
 			close(clientFd);
 			break;
@@ -106,8 +106,8 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tmpPokoj.id = liczbaGier;
 				tmpPokoj.liczbaGraczy = 0;
 				
-				dodajGraczaDoPokoju(tmpPokoj, clientFd);
 				ustawNowaGre(tmpPokoj, 10, 10, 10);
+				dodajGraczaDoPokoju(tmpPokoj, clientFd);
 				
 				pokojeGier.push_back(tmpPokoj);
 				biezacyPokoj = &(pokojeGier.back());
@@ -119,10 +119,10 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("nazwa pokoju po zmianie: |%s|\n", biezacyPokoj->nazwa);
 				printf("nazwa pokoju w globalnej liście po: |%s|\n", pokojeGier.back().nazwa);*/
 				
-				// wyslanie informacji o stanie gry
+				/*// wyslanie informacji o stanie gry
 				strcpy(buffer, "02");
 				tablica[0] = biezacyPokoj->stanGry;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
+				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);*/
 				
 				// wyslanie informacji o wysokosci i szerokosci planszy
 				strcpy(buffer, "03");
@@ -135,7 +135,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
 				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
 				
-				printf("Dodano pokoj.\n");
+				// wyslanie polecenia o rozpoczeciu nowej gry
+				strcpy(buffer, "07");
+				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+				
+				printf("Zakonczono dodawanie pokoju.\n");
 				
 				
 			} else if(kod == 2) {
@@ -167,7 +171,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 			} else if(kod == 3) {
 				// klient prosi o dolaczenie go do wskazanego pokoju (o danym id)
 				i = strtol(tresc, NULL, 10);
-				printf("Trwa wysylanie danych wybranego pokoju do klienta...\n");
+				printf("Trwa dolaczanie do wybranego pokoju...\n");
 				
 				std::list<room>::iterator it;
 				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
@@ -177,7 +181,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				}
 				
 				if(it == pokojeGier.end()) {
-					printf("Klient %d prosi o nieistniejacy serwer.\n", clientFd);
+					printf("Blad - klient %d prosi o nieistniejacy pokoj.\n", clientFd);
 					continue;
 				}
 				
@@ -221,7 +225,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					}
 				}
 				
-				printf("Wysylanie danych zakonczone.\n");
+				printf("Zakonczono dolaczanie do wybranego pokoju.\n");
 				
 				
 			} else if(kod == 4) {
@@ -231,12 +235,12 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
 				
 				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
-					printf("Nie mozna oznaczyc flaga wskazanego pola.\n");
+					printf("Blad - nie mozna oznaczyc flaga wskazanego pola.\n");
 					continue;
 				}
 				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
@@ -255,7 +259,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 				
-				printf("Oznaczanie flaga zakonczone.\n");
+				printf("Zakonczono oznaczanie flaga.\n");
 				
 				
 			} else if(kod == 5) {
@@ -265,12 +269,12 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
 				
 				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
-					printf("Nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
+					printf("Blad - nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
 					continue;
 				}
 				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
@@ -289,7 +293,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 				
-				printf("Oznaczanie znakiem zapytania zakonczone.\n");
+				printf("Zakonczono oznaczanie znakiem zapytania.\n");
 				
 				
 			} else if(kod == 6) {
@@ -299,12 +303,12 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
 				
 				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
-					printf("Nie mozna nieoznaczyc wskazanego pola.\n");
+					printf("Blad - nie mozna nieoznaczyc wskazanego pola.\n");
 					continue;
 				}
 				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
@@ -317,7 +321,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 				
-				printf("Nieoznaczanie zakonczone.\n");
+				printf("Zakonczono nieoznaczanie.\n");
 				
 				
 			} else if(kod == 7) {
@@ -327,18 +331,18 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
 				
 				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
-					printf("Nie mozna odkryc wskazanego pola.\n");
+					printf("Blad - nie mozna odkryc wskazanego pola.\n");
 					continue;
 				}
 				
 				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
 				
 				
-				printf("Odkrywanie pola zakonczone.\n");
+				printf("Zakonczono odkrywanie pola.\n");
 				
 				
 			} else if(kod == 8) {
@@ -364,7 +368,20 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				
 				biezacyPokoj = NULL;
 				
-				printf("Opuszczanie pokoju zakonczone.\n");
+				printf("Zakonczono opuszczanie pokoju.\n");
+				
+				
+			} else if(kod == 9) {
+				// klient prosi o restartowanie planszy
+				printf("Trwa restartowanie planszy...\n");
+				
+				ustawNowaGre(*biezacyPokoj, biezacyPokoj->wysokoscPlanszy, biezacyPokoj->szerokoscPlanszy, biezacyPokoj->liczbaMin);
+				
+				// wyslanie polecenia rozpoczecia nowej gry
+				strcpy(buffer, "07");
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+				
+				printf("Zakonczono restartowanie planszy.\n");
 			}
 		}
 	}
@@ -411,7 +428,7 @@ int main(int argc, char ** argv){
 		// tell who has connected
 		printf("Nowe polaczenie z klientem: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
 		
-		// 
+		// przekierowanie odczytywania wiadomosci od nowego klienta do osobnego watku
 		std::thread watek(odczytajWiadomosc, clientFd, clientAddr);
 		watek.detach();
 		
@@ -439,6 +456,19 @@ void dodajGraczaDoPokoju(room &pokoj, int clientFd) {
 
 void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int liczbaMin) {
 	int row, col, i, j;
+	
+	// zwolnienie pamieci po porzedniej grze
+	if(pokoj.liczbaGraczy > 0) {
+		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+			delete[]pokoj.stanPlanszy[row];
+		}
+		delete[]pokoj.stanPlanszy;
+		
+		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+			delete[]pokoj.plansza[row];
+		}
+		delete[]pokoj.plansza;
+	}
 	
 	if(liczbaMin >= wysokoscPlanszy * szerokoscPlanszy) {
 		liczbaMin = wysokoscPlanszy * szerokoscPlanszy - 1;
