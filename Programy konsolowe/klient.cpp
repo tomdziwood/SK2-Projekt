@@ -30,7 +30,7 @@ void czytajZSerwera(int sock)
         ssize_t bufsize1 = 255, received1;
         char buffer1[bufsize1];
         received1 = readData(sock, buffer1, bufsize1);
-		buffer1[received1 + 1] = '\0';
+		buffer1[received1] = '\0';
 		printf("\n//-------------------- ");
 		printf("\n//---- Nowy komunikat o dlugosci %ld ----\\\\\n", received1);
 		printf("|%s|\n", buffer1);
