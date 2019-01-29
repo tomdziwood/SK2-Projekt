@@ -1,20 +1,35 @@
 ////-------- Komunikacja od klienta dla serwera --------\\\\
 01 - polecenie utworzenia nowego pokoju gry
+		Format: ("01 %s", nazwa pokoju)
 02 - polecenie odœwie¿enia listy dostêpnych gier
+		Format: ("02")
 03 - polecenie do³¹czenia siê do podanego pokoju gry
+		Format: ("03 %d", id pokoju)
+04 - polecenie oznaczenia pola flag¹
+		Format: ("04 %d %d", numer wiersza, numer kolumny)
+05 - polecenie oznaczenia pola znakiem zapytania
+		Format: ("05 %d %d", numer wiersza, numer kolumny)
+06 - polecenie nieoznaczenia pola
+		Format: ("06 %d %d", numer wiersza, numer kolumny)
 
 ////-------- Komunikacja od serwera dla klienta --------\\\\
-01 - podanie nazwy dostepnego serwera
+01 - podanie nazwy dostêpnego serwera
+		Format: ("01 %d %s", id pokoju, nazwa pokoju)
 02 - podanie stanu gry
-03 - podanie wymiarow planszy
-04 - podanie liczby min pozostalych do odznaczenia
-05 - podanie stanu pola planszy w formacie ("%d %d %d", numer wiersza, numer kolumny, stan pola planszy mniejszy ni¿ 3)
-06 - podanie wartoœci w odkrytym polu w formacie ("%d %d %d", numer wiersza, numer kolumny, wartosc pola planszy)
+		Format: ("02 %d", stan gry)
+03 - podanie wymiarów planszy
+		Format: ("03 %d %d", wysokoœæ planszy, szerokoœæ planszy)
+04 - podanie liczby min pozosta³ych do odznaczenia
+		Format: ("04 %d", liczba min pozosta³a do odznaczenia)
+05 - podanie stanu pola planszy
+		Format: ("05 %d %d %d", numer wiersza, numer kolumny, stan pola planszy mniejszy ni¿ 3)
+06 - podanie wartoœci w odkrytym polu
+		Format: ("06 %d %d %d", numer wiersza, numer kolumny, wartoœæ pola planszy)
 
 ////-------- Stan pola planszy --------\\\\
 0 - zakryte
-1 - odznaczone flag¹
-2 - odznaczone znakiem zapytania
+1 - oznaczone flag¹
+2 - oznaczone znakiem zapytania
 3 - odkryte
 
 ////-------- Stan gry --------\\\\
