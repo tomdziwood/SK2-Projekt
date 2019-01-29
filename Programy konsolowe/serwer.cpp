@@ -21,7 +21,7 @@ struct room {
 	char nazwa[256];
 	int id, liczbaGraczy, gracze[16];
 	int **plansza, **stanPlanszy, wysokoscPlanszy, szerokoscPlanszy;
-	int liczbaMin, liczbaMinDoOznaczenia, stanGry;
+	int liczbaMin, liczbaMinDoOznaczenia, stanGry, liczbaNieodkrytychPol;
 };
 
 // server socket
@@ -239,7 +239,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
+				if((biezacyPokoj->stanPlanszy[row][col] != 0) || (biezacyPokoj->stanGry != 1)) {
 					printf("Blad - nie mozna oznaczyc flaga wskazanego pola.\n");
 					continue;
 				}
@@ -273,7 +273,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
+				if((biezacyPokoj->stanPlanszy[row][col] != 1) || (biezacyPokoj->stanGry != 1)) {
 					printf("Blad - nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
 					continue;
 				}
@@ -307,7 +307,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
+				if((biezacyPokoj->stanPlanszy[row][col] != 2) || (biezacyPokoj->stanGry != 1)) {
 					printf("Blad - nie mozna nieoznaczyc wskazanego pola.\n");
 					continue;
 				}
@@ -335,12 +335,68 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
-				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
+				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3) || (biezacyPokoj->stanGry != 1)) {
 					printf("Blad - nie mozna odkryc wskazanego pola.\n");
 					continue;
 				}
 				
-				
+				if(biezacyPokoj->plansza[row][col] > 0) {
+					printf("Odkryto w polu (%d, %d) liczbe %d\n", row, col, biezacyPokoj->plansza[row][col]);
+					biezacyPokoj->stanPlanszy[row][col] = 3;
+					
+					// wyslanie informacji o odkrytym polu z liczba
+					strcpy(buffer, "06");
+					tablica[0] = row;
+					tablica[1] = col;
+					tablica[2] = biezacyPokoj->plansza[row][col];
+					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+					
+					biezacyPokoj->liczbaNieodkrytychPol--;
+					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+						biezacyPokoj->stanGry = 2;
+						
+						// wysylanie informacji o wygranej grze
+						strcpy(buffer, "02");
+						tablica[0] = 2;
+						wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+					}
+				} else if(biezacyPokoj->plansza[row][col] == 0) {
+					printf("Odkryto puste pole (%d, %d)\n", row, col);
+					
+					
+					
+					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+						biezacyPokoj->stanGry = 2;
+						
+						// wysylanie informacji o wygranej grze
+						strcpy(buffer, "02");
+						tablica[0] = 2;
+						wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+					}
+				} else {
+					printf("Trafiono bombe na polu (%d, %d)\n", row, col);
+					biezacyPokoj->stanGry = 0;
+					
+					// wyslanie informacji o przegranej grze
+					strcpy(buffer, "02");
+					tablica[0] = 0;
+					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+					
+					//wysylanie informacji o polach z minami
+					for(row = 0; row < biezacyPokoj->wysokoscPlanszy; row++) {
+						for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {
+							if(biezacyPokoj->plansza[row][col] == -1) {
+								biezacyPokoj->stanPlanszy[row][col] = 3;
+								
+								strcpy(buffer, "06");
+								tablica[0] = row;
+								tablica[1] = col;
+								tablica[2] = -1;
+								wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+							}
+						}
+					}
+				}
 				
 				printf("Zakonczono odkrywanie pola.\n");
 				
@@ -453,7 +509,7 @@ int main(int argc, char ** argv){
 		clientFds.insert(clientFd);
 		
 		// tell who has connected
-		printf("Nowe polaczenie z klientem: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
+		printf("\n//****** Nowe polaczenie z klientem: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
 		
 		// przekierowanie odczytywania wiadomosci od nowego klienta do osobnego watku
 		std::thread watek(odczytajWiadomosc, clientFd, clientAddr);
@@ -514,6 +570,7 @@ void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int li
 	pokoj.liczbaMin = liczbaMin;
 	pokoj.liczbaMinDoOznaczenia = liczbaMin;
 	pokoj.stanGry = 1;
+	pokoj.liczbaNieodkrytychPol = wysokoscPlanszy * szerokoscPlanszy;
 	
 	pokoj.stanPlanszy = new int*[wysokoscPlanszy];
 	for(row = 0; row < wysokoscPlanszy; row++) {
@@ -561,10 +618,18 @@ void zakonczWiadomoscZnakiemKoncaLini(char *buffer) {
 void itoa(int liczba, char *tekst, int podstawa) {
 	std::stack<char> stos;
 	int i;
+	bool ujemna;
 	
 	if(liczba == 0) {
 		strcpy(tekst, "0");
 		return;
+	}
+	
+	if(liczba < 0) {
+		liczba *= -1;
+		ujemna = true;
+	} else {
+		ujemna = false;
 	}
 	
 	while(liczba) {
@@ -572,7 +637,13 @@ void itoa(int liczba, char *tekst, int podstawa) {
 		liczba /= podstawa;
 	}
 	
-	i = 0;
+	if(ujemna) {
+		tekst[0] = '-';
+		i = 1;
+	} else {
+		i = 0;
+	}
+	
 	while(!stos.empty()) {
 		tekst[i] = stos.top();
 		stos.pop();

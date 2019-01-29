@@ -45,3 +45,4 @@
 ////-------- Stan gry --------\\\\
 0 - koniec gry
 1 - gra w toku
+2 - gra wygrana
