@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <list>
 #include <stack>
+#include <queue>
 #include <signal.h>
 #include <cstring>
 #include <time.h>
@@ -59,9 +60,11 @@ void itoa(int liczba, char *tekst, int podstawa);
 
 void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuffer);
 
-void wyslijDoWszystkich(room *biezacyPokoj, char * buffer, int count);
+void wyslijDoWszystkich(room *biezacyPokoj, char *buffer, int count);
 
 void wyslijLiczbyDoWszystkich(room *biezacyPokoj, int *tablica, int n, char *buffer, char *tmpBuffer);
+
+void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, char *buffer, char *tmpBuffer);
 
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
@@ -413,7 +416,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				} else if(biezacyPokoj->plansza[row][col] == 0) {
 					printf("Odkryto puste pole (%d, %d)\n", row, col);
 					
-					
+					odkryjPlanszeFloodFill(biezacyPokoj, row, col, tablica, buffer, tmpBuffer);
 					
 					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
 						biezacyPokoj->stanGry = 2;
@@ -618,17 +621,22 @@ void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int li
 		delete[]pokoj.plansza;
 	}
 	
-	if((wysokoscPlanszy <= 0) || (wysokoscPlanszy > 200)) {
+	if((wysokoscPlanszy <= 1) || (wysokoscPlanszy > 200)) {
 		wysokoscPlanszy = 10;
 	}
 	
-	if((szerokoscPlanszy <= 0) || (szerokoscPlanszy > 200)) {
+	if((szerokoscPlanszy <= 1) || (szerokoscPlanszy > 200)) {
 		szerokoscPlanszy = 10;
+	}
+	
+	if(liczbaMin <= 0) {
+		liczbaMin = 10;
 	}
 	
 	if(liczbaMin >= wysokoscPlanszy * szerokoscPlanszy) {
 		liczbaMin = wysokoscPlanszy * szerokoscPlanszy - 1;
 	}
+	
 	
 	pokoj.wysokoscPlanszy = wysokoscPlanszy;
 	pokoj.szerokoscPlanszy = szerokoscPlanszy;
@@ -759,4 +767,49 @@ void wyslijLiczbyDoWszystkich(room *biezacyPokoj, int *tablica, int n, char *buf
 	// wyslanie wiadomosci
 	count = strlen(buffer);
 	wyslijDoWszystkich(biezacyPokoj, buffer, count);
+}
+
+void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, char *buffer, char *tmpBuffer) {
+	std::queue<int> kolejka;
+	int i, j;
+	
+	// wyslanie informacji o odkrytym polu z liczba
+	strcpy(buffer, "06");
+	tablica[0] = row;
+	tablica[1] = col;
+	tablica[2] = biezacyPokoj->plansza[row][col];
+	wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+	
+	biezacyPokoj->stanPlanszy[row][col] = 3;
+	biezacyPokoj->liczbaNieodkrytychPol--;
+	kolejka.push(row);
+	kolejka.push(col);
+	
+	
+	while(!kolejka.empty()) {
+		row = kolejka.front();
+		kolejka.pop();
+		col = kolejka.front();
+		kolejka.pop();
+		
+		for(i = row - 1; i <= row + 1; i++) {
+			for(j = col - 1; j <= col + 1; j++) {
+				if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] != 3)) {
+					// wyslanie informacji o odkrytym polu z liczba
+					strcpy(buffer, "06");
+					tablica[0] = i;
+					tablica[1] = j;
+					tablica[2] = biezacyPokoj->plansza[i][j];
+					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+					
+					biezacyPokoj->stanPlanszy[i][j] = 3;
+					biezacyPokoj->liczbaNieodkrytychPol--;
+					if(biezacyPokoj->plansza[i][j] == 0) {
+						kolejka.push(i);
+						kolejka.push(j);
+					}
+				}
+			}
+		}
+	}
 }
