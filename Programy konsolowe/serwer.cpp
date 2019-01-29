@@ -235,6 +235,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					continue;
+				}
+				
 				biezacyPokoj->stanPlanszy[row][col] = 1;
 				biezacyPokoj->liczbaMinDoOznaczenia--;
 				
@@ -250,6 +255,8 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 				
+				printf("Oznaczanie flaga zakonczone.\n");
+				
 				
 			} else if(kod == 5) {
 				// klient prosi o oznaczenie znakiem zapytania danego pola
@@ -259,6 +266,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				
 				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
 					printf("Nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
+					continue;
+				}
+				
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
@@ -277,6 +289,8 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 				
+				printf("Oznaczanie znakiem zapytania zakonczone.\n");
+				
 				
 			} else if(kod == 6) {
 				// klient prosi o nieoznaczenie danego pola
@@ -289,6 +303,11 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					continue;
 				}
 				
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					continue;
+				}
+				
 				biezacyPokoj->stanPlanszy[row][col] = 0;
 				
 				// wyslanie informacji o oznaczonym polu
@@ -297,6 +316,55 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[1] = col;
 				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+				
+				printf("Nieoznaczanie zakonczone.\n");
+				
+				
+			} else if(kod == 7) {
+				// klient prosi o odkrycie danego pola
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
+				
+				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
+					printf("Nie mozna odkryc wskazanego pola.\n");
+					continue;
+				}
+				
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Wskazane pole nie znajduje sie w zakresie planszy.\n");
+					continue;
+				}
+				
+				
+				
+				printf("Odkrywanie pola zakonczone.\n");
+				
+				
+			} else if(kod == 8) {
+				// klient prosi o wyjscie z biezacego pokoju
+				printf("Trwa opuszczanie pokoju...\n");
+				
+				i = 0;
+				while(biezacyPokoj->gracze[i] != clientFd) {
+					i++;
+				}
+				biezacyPokoj->liczbaGraczy--;
+				biezacyPokoj->gracze[i] = biezacyPokoj->gracze[ biezacyPokoj->liczbaGraczy ];
+				
+				if(biezacyPokoj->liczbaGraczy == 0) {
+					std::list<room>::iterator it;
+					for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+						if(it->id == biezacyPokoj->id) {
+							break;
+						}
+					}
+					pokojeGier.erase(it);
+				}
+				
+				biezacyPokoj = NULL;
+				
+				printf("Opuszczanie pokoju zakonczone.\n");
 			}
 		}
 	}
@@ -310,7 +378,7 @@ int main(int argc, char ** argv){
 	
 	// create socket
 	servFd = socket(AF_INET, SOCK_STREAM, 0);
-	if(servFd == -1) error(1, errno, "socket failed");
+	if(servFd == -1) error(1, errno, "Blad podczas socket()");
 	
 	// graceful ctrl+c exit
 	signal(SIGINT, ctrl_c);
@@ -322,11 +390,11 @@ int main(int argc, char ** argv){
 	// bind to any address and port provided in arguments
 	sockaddr_in serverAddr{.sin_family=AF_INET, .sin_port=htons(port), .sin_addr={INADDR_ANY}};
 	int res = bind(servFd, (sockaddr*) &serverAddr, sizeof(serverAddr));
-	if(res) error(1, errno, "bind failed");
+	if(res) error(1, errno, "Blad podczas bind()");
 	
 	// enter listening mode
 	res = listen(servFd, 1);
-	if(res) error(1, errno, "listen failed");
+	if(res) error(1, errno, "Blad podczas listen()");
 	
 	while(true){
 		// prepare placeholders for client address
@@ -335,13 +403,13 @@ int main(int argc, char ** argv){
 		
 		// accept new connection
 		auto clientFd = accept(servFd, (sockaddr*) &clientAddr, &clientAddrSize);
-		if(clientFd == -1) error(1, errno, "accept failed");
+		if(clientFd == -1) error(1, errno, "Blad podczas accept()");
 		
 		// add client to all clients set
 		clientFds.insert(clientFd);
 		
 		// tell who has connected
-		printf("new connection from: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
+		printf("Nowe polaczenie z klientem: %s:%hu (fd: %d)\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), clientFd);
 		
 		// 
 		std::thread watek(odczytajWiadomosc, clientFd, clientAddr);
@@ -353,14 +421,14 @@ int main(int argc, char ** argv){
 void setReuseAddr(int sock){
 	const int one = 1;
 	int res = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-	if(res) error(1,errno, "setsockopt failed");
+	if(res) error(1,errno, "Blad podczas setsockopt");
 }
 
 void ctrl_c(int){
 	for(int clientFd : clientFds)
 		close(clientFd);
 	close(servFd);
-	printf("\nClosing server\n");
+	printf("\nZamykanie serwera\n");
 	exit(0);
 }
 
@@ -470,7 +538,6 @@ void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuff
 void wyslijDoWszystkich(room *biezacyPokoj, char * buffer, int count){
 	int i;
 	for(i = 0; i < biezacyPokoj->liczbaGraczy; i++) {
-		printf("Wysylam wiadomosc: |%s| do gracze[%d] = %d\n", buffer, i, biezacyPokoj->gracze[i]);
 		write(biezacyPokoj->gracze[i], buffer, count);
 	}
 }
