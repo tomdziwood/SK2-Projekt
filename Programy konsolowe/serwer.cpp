@@ -268,13 +268,13 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
-					printf("Blad - nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
+					printf("Blad - nie mozna oznaczyc znakiem zapytania wskazanego pola.\n");
 					continue;
 				}
 				
@@ -302,13 +302,13 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
 				
-				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
-					printf("Blad - nie mozna nieoznaczyc wskazanego pola.\n");
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
+					printf("Blad - nie mozna nieoznaczyc wskazanego pola.\n");
 					continue;
 				}
 				
@@ -330,13 +330,13 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				col = strtol(tresc, &tresc, 10);
 				printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
 				
-				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
-					printf("Blad - nie mozna odkryc wskazanego pola.\n");
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
 					continue;
 				}
 				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
+					printf("Blad - nie mozna odkryc wskazanego pola.\n");
 					continue;
 				}
 				
@@ -495,6 +495,14 @@ void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int li
 			delete[]pokoj.plansza[row];
 		}
 		delete[]pokoj.plansza;
+	}
+	
+	if((wysokoscPlanszy <= 0) || (wysokoscPlanszy > 200)) {
+		wysokoscPlanszy = 10;
+	}
+	
+	if((szerokoscPlanszy <= 0) || (szerokoscPlanszy > 200)) {
+		szerokoscPlanszy = 10;
 	}
 	
 	if(liczbaMin >= wysokoscPlanszy * szerokoscPlanszy) {
