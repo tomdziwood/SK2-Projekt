@@ -68,6 +68,8 @@ void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, 
 
 void odkryjBomby(room *biezacyPokoj, int *tablica, char *buffer, char *tmpBuffer);
 
+void wyslijDane(int fd, char *buffer, int count);
+
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
 	long long int kod;
@@ -173,7 +175,8 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					
 					// wyslanie wiadomosci
 					count = strlen(buffer);
-					write(clientFd, buffer, count);
+					//write(clientFd, buffer, count);
+					wyslijDane(clientFd, buffer, count);
 				}
 				printf("Zakonczono wysylanie listy pokoi.\n");
 				
@@ -492,7 +495,8 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					
 					// wyslanie wiadomosci
 					count = strlen(buffer);
-					write(clientFd, buffer, count);
+					//write(clientFd, buffer, count);
+					wyslijDane(clientFd, buffer, count);
 				}
 				
 				printf("Zakonczono opuszczanie pokoju i wysylanie listy dostepnych pokoi gier.\n");
@@ -847,13 +851,15 @@ void wyslijLiczby(int clientFd, int *tablica, int n, char *buffer, char *tmpBuff
 	
 	// wyslanie wiadomosci
 	count = strlen(buffer);
-	write(clientFd, buffer, count);
+	//write(clientFd, buffer, count);
+	wyslijDane(clientFd, buffer, count);
 }
 
 void wyslijDoWszystkich(room *biezacyPokoj, char * buffer, int count){
 	int i;
 	for(i = 0; i < biezacyPokoj->liczbaGraczy; i++) {
-		write(biezacyPokoj->gracze[i], buffer, count);
+		//write(biezacyPokoj->gracze[i], buffer, count);
+		wyslijDane(biezacyPokoj->gracze[i], buffer, count);
 	}
 }
 
@@ -941,4 +947,10 @@ void odkryjBomby(room *biezacyPokoj, int *tablica, char *buffer, char *tmpBuffer
 			}
 		}
 	}
+}
+
+void wyslijDane(int fd, char *buffer, int count){
+	int ret = write(fd, buffer, count);
+	if(ret == -1) error(1, errno, "Blad funkcji write() na kliencie %d", fd);
+	if(ret != count) error(0, errno, "Blad funkcji write() na kliencie %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
 }
