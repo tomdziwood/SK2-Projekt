@@ -36,15 +36,14 @@ void wyslijDane(int fd, char *buffer, int count){
 void rysujGre() {
 	int row, col;
 	
-	printf("\n\nBiezaca gra:\n");
+	system("clear");
 	
 	if(czyWPokoju) {
 		printf("Liczba min do oznaczenia:\t%d\n", pokoj.liczbaMinDoOznaczenia);
 		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 			for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
 				if(pokoj.stanPlanszy[row][col] == 0) {
-					//printf("%c", char(219));
-					printf("X");
+					printf("\u2588");
 				} else if(pokoj.stanPlanszy[row][col] == 1) {
 					printf("!");
 				} else if(pokoj.stanPlanszy[row][col] == 2) {
@@ -105,7 +104,7 @@ void czytajZSerwera(int sock)
 			if(koniec != received) {
 				// znaleziono znak konca linii -> komenda jest kompletna
 				tmpBuffer[count] = '\0';
-				printf("(count = %d):\t|%s|\n", count, tmpBuffer);
+				//printf("(count = %d):\t|%s|\n", count, tmpBuffer);
 				
 				// przygotowanie indeksow do wydzielenia kolejnej komendy
 				count = 0;
@@ -200,7 +199,7 @@ void czytajZSerwera(int sock)
 
 void wysylajDoSerwera(int sock)
 {
-	int buffsize = 255, received;
+	int buffsize = 255, received, kod;
 	char buffer[buffsize];
 	
 	// read from stdin, write to socket
@@ -208,6 +207,11 @@ void wysylajDoSerwera(int sock)
     {
         received = odbierzDane(0, buffer, buffsize);
         wyslijDane(sock, buffer, received);
+		
+		kod = strtol(buffer, NULL, 10);
+		if(kod == 8) {
+			czyWPokoju = false;
+		}
     }
 }
 
