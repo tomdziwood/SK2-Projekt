@@ -24,17 +24,48 @@ void writeData(int fd, char * buffer, ssize_t count){
 
 void czytajZSerwera(int sock)
 {
+	int buffsize = 255, received;
+	char buffer[buffsize], tmpBuffer[buffsize];
+	int poczatek, koniec, count = 0;
+	
 	// read from socket, write to stdout
     while(true)
     {
-        ssize_t bufsize1 = 255, received1;
-        char buffer1[bufsize1];
-        received1 = readData(sock, buffer1, bufsize1);
-		buffer1[received1] = '\0';
+        received = readData(sock, buffer, buffsize);
+		buffer[received] = '\0';
 		printf("\n//-------------------- ");
-		printf("\n//---- Nowy komunikat o dlugosci %ld ----\\\\\n", received1);
-		printf("|%s|\n", buffer1);
+		printf("\n//---- Nowy komunikat o dlugosci %d ----\\\\\n", received);
+		printf("|%s|\n", buffer);
         //writeData(1, buffer1, received1);
+		
+		poczatek = 0;
+		koniec = 0;
+		printf("Wydzielone wiadomosci:\n");
+		while(koniec != received) {
+			// poszukiwanie znaku konca linii
+			while((koniec != received) && (buffer[koniec] != '\n')) {
+				koniec++;
+			}
+			
+			// kopiowanie komendy do lancucha tmpBuffer
+			while(poczatek != koniec) {
+				tmpBuffer[count] = buffer[poczatek];
+				poczatek++;
+				count++;
+			}
+			
+			if(koniec != received) {
+				// znaleziono znak konca linii -> komenda jest kompletna
+				tmpBuffer[count] = '\0';
+				printf("(count = %d):\t|%s|\n", count, tmpBuffer);
+				
+				// przygotowanie indeksow do wydzielenia kolejnej komendy
+				count = 0;
+				koniec++;
+				poczatek = koniec;
+			}
+		}
+		
     }
 }
 
