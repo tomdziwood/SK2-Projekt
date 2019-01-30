@@ -10,16 +10,16 @@
 #include <thread>
 #include <stdio.h>
 
-ssize_t readData(int fd, char * buffer, ssize_t buffsize){
-	auto ret = read(fd, buffer, buffsize);
-	if(ret==-1) error(1,errno, "read failed on descriptor %d", fd);
+int odbierzDane(int fd, char *buffer, int buffsize){
+	int ret = read(fd, buffer, buffsize);
+	if(ret==-1) error(1,errno, "Blad funkcji read() na deskryptorze %d", fd);
 	return ret;
 }
 
-void writeData(int fd, char * buffer, ssize_t count){
-	auto ret = write(fd, buffer, count);
-	if(ret==-1) error(1, errno, "write failed on descriptor %d", fd);
-	if(ret!=count) error(0, errno, "wrote less than requested to descriptor %d (%ld/%ld)", fd, count, ret);
+void wyslijDane(int fd, char *buffer, int count){
+	int ret = write(fd, buffer, count);
+	if(ret == -1) error(1, errno, "Blad funkcji write() na deskryptorze %d", fd);
+	if(ret != count) error(0, errno, "Blad funkcji write() na deskryptorze %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
 }
 
 void czytajZSerwera(int sock)
@@ -31,12 +31,11 @@ void czytajZSerwera(int sock)
 	// read from socket, write to stdout
     while(true)
     {
-        received = readData(sock, buffer, buffsize);
+        received = odbierzDane(sock, buffer, buffsize);
 		buffer[received] = '\0';
 		printf("\n//-------------------- ");
 		printf("\n//---- Nowy komunikat o dlugosci %d ----\\\\\n", received);
 		printf("|%s|\n", buffer);
-        //writeData(1, buffer1, received1);
 		
 		poczatek = 0;
 		koniec = 0;
@@ -76,8 +75,8 @@ void wysylajDoSerwera(int sock)
     {
         ssize_t bufsize2 = 255, received2;
         char buffer2[bufsize2];
-        received2 = readData(0, buffer2, bufsize2);
-        writeData(sock, buffer2, received2);
+        received2 = odbierzDane(0, buffer2, bufsize2);
+        wyslijDane(sock, buffer2, received2);
     }
 }
 
