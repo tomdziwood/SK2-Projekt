@@ -222,6 +222,10 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
 				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
 				
+				// wyslanie polecenia o rozpoczeciu nowej gry
+				strcpy(buffer, "07");
+				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+				
 				// wyslanie informacji o zmodyfikowanych polach
 				for(row=0; row < biezacyPokoj->wysokoscPlanszy; row++) {
 					for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {

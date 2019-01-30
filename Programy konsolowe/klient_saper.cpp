@@ -10,6 +10,17 @@
 #include <thread>
 #include <stdio.h>
 
+struct room {
+	char nazwa[256];
+	int id, liczbaGraczy, gracze[16];
+	int **plansza, **stanPlanszy, wysokoscPlanszy, szerokoscPlanszy;
+	int liczbaMin, liczbaMinDoOznaczenia, stanGry, liczbaNieodkrytychPol;
+};
+
+room pokoj;
+bool czyWPokoju;
+
+
 int odbierzDane(int fd, char *buffer, int buffsize){
 	int ret = read(fd, buffer, buffsize);
 	if(ret==-1) error(1,errno, "Blad funkcji read() na deskryptorze %d", fd);
@@ -22,24 +33,62 @@ void wyslijDane(int fd, char *buffer, int count){
 	if(ret != count) error(0, errno, "Blad funkcji write() na deskryptorze %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
 }
 
+void rysujGre() {
+	int row, col;
+	
+	printf("\n\nBiezaca gra:\n");
+	
+	if(czyWPokoju) {
+		printf("Liczba min do oznaczenia:\t%d\n", pokoj.liczbaMinDoOznaczenia);
+		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+			for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+				if(pokoj.stanPlanszy[row][col] == 0) {
+					//printf("%c", char(219));
+					printf("X");
+				} else if(pokoj.stanPlanszy[row][col] == 1) {
+					printf("!");
+				} else if(pokoj.stanPlanszy[row][col] == 2) {
+					printf("?");
+				} else if(pokoj.plansza[row][col] == -1) {
+					printf("*");
+				} else if(pokoj.plansza[row][col] == 0) {
+					printf(" ");
+				} else {
+					printf("%d", pokoj.plansza[row][col]);
+				}
+			}
+			printf("\n");
+		}
+		
+		
+	} else {
+		printf("Jestes w menu glownym.\n");
+	}
+}
+
 void czytajZSerwera(int sock)
 {
 	int buffsize = 255, received;
 	char buffer[buffsize], tmpBuffer[buffsize];
 	int poczatek, koniec, count = 0;
 	
+	int kod, row, col, id, staraWysokoscPlanszy;
+	char *tresc;
+	
+	pokoj.wysokoscPlanszy = 0;
+	pokoj.szerokoscPlanszy = 0;
+	czyWPokoju = false;
+	
 	// read from socket, write to stdout
     while(true)
     {
+		rysujGre();
+		
         received = odbierzDane(sock, buffer, buffsize);
 		buffer[received] = '\0';
-		printf("\n//-------------------- ");
-		printf("\n//---- Nowy komunikat o dlugosci %d ----\\\\\n", received);
-		printf("|%s|\n", buffer);
 		
 		poczatek = 0;
 		koniec = 0;
-		printf("Wydzielone wiadomosci:\n");
 		while(koniec != received) {
 			// poszukiwanie znaku konca linii
 			while((koniec != received) && (buffer[koniec] != '\n')) {
@@ -62,6 +111,84 @@ void czytajZSerwera(int sock)
 				count = 0;
 				koniec++;
 				poczatek = koniec;
+				
+				
+				tresc = tmpBuffer;
+				kod = strtol(tresc, &tresc, 10);
+				if(kod == 1) {
+					// serwer przesyla informacje o dostepnym pokoju
+					id = strtol(tresc, &tresc, 10);
+					printf("%d:\t%s\n", id, tresc);
+					
+					
+				} else if(kod == 2) {
+					// serwer przesyla informacje o stanie gry
+					pokoj.stanGry = strtol(tresc, &tresc, 10);
+					
+					
+				} else if(kod == 3) {
+					// serwer przesyla informacje o rozmiarze planszy
+					staraWysokoscPlanszy = pokoj.wysokoscPlanszy;
+					
+					pokoj.wysokoscPlanszy = strtol(tresc, &tresc, 10);
+					pokoj.szerokoscPlanszy = strtol(tresc, &tresc, 10);
+					
+					
+				} else if(kod == 4) {
+					// serwer przesyla ilosc min pozostala do odznaczenia
+					pokoj.liczbaMinDoOznaczenia = strtol(tresc, &tresc, 10);
+					
+					
+				} else if(kod == 5) {
+					// serwer przesyla informacje o stanie w jakim znajduje sie pole planszy
+					row = strtol(tresc, &tresc, 10);
+					col = strtol(tresc, &tresc, 10);
+					pokoj.stanPlanszy[row][col] = strtol(tresc, &tresc, 10);
+					
+					
+				} else if(kod == 6) {
+					//serwer przesyla informacje o odkrytym polu planszy
+					row = strtol(tresc, &tresc, 10);
+					col = strtol(tresc, &tresc, 10);
+					pokoj.plansza[row][col] = strtol(tresc, &tresc, 10);
+					pokoj.stanPlanszy[row][col] = 3;
+					
+					
+				} else if(kod == 7) {
+					// serwer przesyla polecenia rozpoczecia nowej gry przy obecnych parametrach
+					
+					if((pokoj.wysokoscPlanszy != 0) || (pokoj.szerokoscPlanszy != 0)) {
+						// trzeba zwolnic pamiec po pozostalej planszy
+						for(row = 0; row < staraWysokoscPlanszy; row++) {
+							delete[]pokoj.stanPlanszy[row];
+						}
+						delete[]pokoj.stanPlanszy;
+						
+						for(row = 0; row < staraWysokoscPlanszy; row++) {
+							delete[]pokoj.plansza[row];
+						}
+						delete[]pokoj.plansza;
+					}
+					
+					//
+					pokoj.stanPlanszy = new int*[pokoj.wysokoscPlanszy];
+					for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+						pokoj.stanPlanszy[row] = new int[pokoj.szerokoscPlanszy];
+						for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+							pokoj.stanPlanszy[row][col] = 0;
+						}
+					}
+					
+					pokoj.plansza = new int*[pokoj.wysokoscPlanszy];
+					for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+						pokoj.plansza[row] = new int[pokoj.szerokoscPlanszy];
+						for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+							pokoj.plansza[row][col] = 0;
+						}
+					}
+					
+					czyWPokoju = true;
+				}
 			}
 		}
     }
