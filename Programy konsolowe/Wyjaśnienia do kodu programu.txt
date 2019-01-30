@@ -19,6 +19,8 @@
 		Format: ("09")
 10 - polecenie utworzenia gry o nowych parametrach
 		Format: ("10 %d %d %d", wysokosc planszy, szerokosc planszy, liczba min)
+11 - polecenie odkrycia pól dooko³a wskazanego pola z liczb¹ na podstawie oflagowanych ju¿ min
+		Format: ("11 %d %d", numer wiersza, numer kolumny)
 
 ////-------- Komunikacja od serwera dla klienta --------\\\\
 01 - podanie nazwy dostêpnego serwera

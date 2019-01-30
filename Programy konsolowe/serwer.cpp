@@ -66,12 +66,14 @@ void wyslijLiczbyDoWszystkich(room *biezacyPokoj, int *tablica, int n, char *buf
 
 void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, char *buffer, char *tmpBuffer);
 
+void odkryjBomby(room *biezacyPokoj, int *tablica, char *buffer, char *tmpBuffer);
+
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
 	long long int kod;
 	room tmpPokoj, *biezacyPokoj = NULL;
 	char buffer[256], tmpBuffer[256], *tresc;
-	int count, i, tablica[10], row, col;
+	int count, i, j, tablica[10], row, col;
 	
 	while(true)
 	{
@@ -396,6 +398,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				if(biezacyPokoj->plansza[row][col] > 0) {
 					printf("Odkryto w polu (%d, %d) liczbe %d\n", row, col, biezacyPokoj->plansza[row][col]);
 					biezacyPokoj->stanPlanszy[row][col] = 3;
+					biezacyPokoj->liczbaNieodkrytychPol--;
 					
 					// wyslanie informacji o odkrytym polu z liczba
 					strcpy(buffer, "06");
@@ -404,7 +407,6 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					tablica[2] = biezacyPokoj->plansza[row][col];
 					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 					
-					biezacyPokoj->liczbaNieodkrytychPol--;
 					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
 						biezacyPokoj->stanGry = 2;
 						
@@ -435,20 +437,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 					tablica[0] = 0;
 					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
 					
-					//wysylanie informacji o polach z minami
-					for(row = 0; row < biezacyPokoj->wysokoscPlanszy; row++) {
-						for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {
-							if(biezacyPokoj->plansza[row][col] == -1) {
-								biezacyPokoj->stanPlanszy[row][col] = 3;
-								
-								strcpy(buffer, "06");
-								tablica[0] = row;
-								tablica[1] = col;
-								tablica[2] = -1;
-								wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-							}
-						}
-					}
+					odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
 				}
 				
 				printf("Zakonczono odkrywanie pola.\n");
@@ -557,6 +546,99 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
 				
 				printf("Zakonczono ustawianie nowej gry.\n");
+				
+				
+			} else if(kod == 11) {
+				// klient prosi o odkrycie pól dookoła wskazanego pola z liczbą na podstawie oflagowanych już min
+				row = strtol(tresc, &tresc, 10);
+				col = strtol(tresc, &tresc, 10);
+				printf("Trwa odkrywanie pol dookola wskazanego pola z liczba...\n");
+				
+				if(biezacyPokoj == NULL) {
+					printf("Blad - nie mozna odkrywac pol, skoro nie gra sie w zadnym z pokojow.\n");
+					continue;
+				}
+				
+				if(biezacyPokoj->stanGry != 1) {
+					printf("Blad - gra juz sie zakonczyla.\n");
+					continue;
+				}
+				
+				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+					continue;
+				}
+				
+				if((biezacyPokoj->stanPlanszy[row][col] != 3) || (biezacyPokoj->plansza[row][col] <= 0)) {
+					printf("Blad - odkrywac mozna tylko na podstawie odkrytej juz liczby na planszy.\n");
+					continue;
+				}
+				
+				count = 0;
+				for(i = row - 1; i <= row + 1; i++) {
+					for(j = col - 1; j <= col + 1; j++) {
+						if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] == 1)) {
+							count++;
+						}
+					}
+				}
+				
+				if(count != biezacyPokoj->plansza[row][col]) {
+					printf("Blad - liczba oznaczonych dookola flag nie zgadza sie z liczba w polu (%d, %d).\n", row, col);
+					continue;
+				}
+				
+				std::queue<int> kolejkaOdkrytychPustychPol;
+				bool bomba = false;
+				
+				for(i = row - 1; i <= row + 1; i++) {
+					for(j = col - 1; j <= col + 1; j++) {
+						if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] != 1) && (biezacyPokoj->stanPlanszy[i][j] != 3)) {
+							biezacyPokoj->stanPlanszy[i][j] = 3;
+							biezacyPokoj->liczbaNieodkrytychPol--;
+							
+							strcpy(buffer, "06");
+							tablica[0] = i;
+							tablica[1] = j;
+							tablica[2] = biezacyPokoj->plansza[i][j];
+							wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+							
+							if((biezacyPokoj->plansza[i][j] == -1) && (bomba == false)) {
+								printf("Trafiono bombe na polu (%d, %d)\n", i, j);
+								bomba = true;
+								
+								// wysylanie informacji o przegranej grze
+								strcpy(buffer, "02");
+								tablica[0] = 0;
+								wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+							} else if(biezacyPokoj->plansza[i][j] == 0) {
+								kolejkaOdkrytychPustychPol.push(i);
+								kolejkaOdkrytychPustychPol.push(j);
+							}
+						}
+					}
+				}
+				
+				while(!kolejkaOdkrytychPustychPol.empty()) {
+					i = kolejkaOdkrytychPustychPol.front();
+					kolejkaOdkrytychPustychPol.pop();
+					j = kolejkaOdkrytychPustychPol.front();
+					kolejkaOdkrytychPustychPol.pop();
+					odkryjPlanszeFloodFill(biezacyPokoj, i, j, tablica, buffer, tmpBuffer);
+				}
+				
+				if(bomba) {
+					odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
+				} else if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+					biezacyPokoj->stanGry = 2;
+					
+					// wysylanie informacji o wygranej grze
+					strcpy(buffer, "02");
+					tablica[0] = 2;
+					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+				}
+				
+				printf("Zakonczono odkrywanie pol dookola wskazanego pola z liczba.\n");
 			}
 		}
 	}
@@ -797,15 +879,18 @@ void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, 
 	std::queue<int> kolejka;
 	int i, j;
 	
-	// wyslanie informacji o odkrytym polu z liczba
-	strcpy(buffer, "06");
-	tablica[0] = row;
-	tablica[1] = col;
-	tablica[2] = biezacyPokoj->plansza[row][col];
-	wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+	if(biezacyPokoj->stanPlanszy[row][col] != 3) {
+		// wyslanie informacji o odkrytym polu z liczba
+		strcpy(buffer, "06");
+		tablica[0] = row;
+		tablica[1] = col;
+		tablica[2] = biezacyPokoj->plansza[row][col];
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+		
+		biezacyPokoj->stanPlanszy[row][col] = 3;
+		biezacyPokoj->liczbaNieodkrytychPol--;
+	}
 	
-	biezacyPokoj->stanPlanszy[row][col] = 3;
-	biezacyPokoj->liczbaNieodkrytychPol--;
 	kolejka.push(row);
 	kolejka.push(col);
 	
@@ -833,6 +918,26 @@ void odkryjPlanszeFloodFill(room *biezacyPokoj, int row, int col, int *tablica, 
 						kolejka.push(j);
 					}
 				}
+			}
+		}
+	}
+}
+
+void odkryjBomby(room *biezacyPokoj, int *tablica, char *buffer, char *tmpBuffer) {
+	int row, col;
+	
+	//wysylanie informacji o pozostalych polach z minami
+	for(row = 0; row < biezacyPokoj->wysokoscPlanszy; row++) {
+		for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {
+			if((biezacyPokoj->plansza[row][col] == -1) && (biezacyPokoj->stanPlanszy[row][col] != 3)) {
+				biezacyPokoj->stanPlanszy[row][col] = 3;
+				biezacyPokoj->liczbaNieodkrytychPol--;
+				
+				strcpy(buffer, "06");
+				tablica[0] = row;
+				tablica[1] = col;
+				tablica[2] = -1;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
 			}
 		}
 	}
