@@ -72,7 +72,7 @@ void czytajZSerwera(int sock)
 	char buffer[buffsize], tmpBuffer[buffsize];
 	int poczatek, koniec, count = 0;
 	
-	int kod, row, col, id, staraWysokoscPlanszy;
+	int kod, row, col, id, nowaWysokoscPlanszy, nowaSzerokoscPlanszy, nowaLiczbaMinDoOznaczenia;
 	char *tresc;
 	
 	pokoj.wysokoscPlanszy = 0;
@@ -128,15 +128,13 @@ void czytajZSerwera(int sock)
 					
 				} else if(kod == 3) {
 					// serwer przesyla informacje o rozmiarze planszy
-					staraWysokoscPlanszy = pokoj.wysokoscPlanszy;
-					
-					pokoj.wysokoscPlanszy = strtol(tresc, &tresc, 10);
-					pokoj.szerokoscPlanszy = strtol(tresc, &tresc, 10);
+					nowaWysokoscPlanszy = strtol(tresc, &tresc, 10);
+					nowaSzerokoscPlanszy = strtol(tresc, &tresc, 10);
 					
 					
 				} else if(kod == 4) {
 					// serwer przesyla ilosc min pozostala do odznaczenia
-					pokoj.liczbaMinDoOznaczenia = strtol(tresc, &tresc, 10);
+					nowaLiczbaMinDoOznaczenia = strtol(tresc, &tresc, 10);
 					
 					
 				} else if(kod == 5) {
@@ -159,18 +157,24 @@ void czytajZSerwera(int sock)
 					
 					if((pokoj.wysokoscPlanszy != 0) || (pokoj.szerokoscPlanszy != 0)) {
 						// trzeba zwolnic pamiec po pozostalej planszy
-						for(row = 0; row < staraWysokoscPlanszy; row++) {
+						printf("Trwa usuwanie stanu planszy...\n");
+						for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 							delete[]pokoj.stanPlanszy[row];
 						}
 						delete[]pokoj.stanPlanszy;
 						
-						for(row = 0; row < staraWysokoscPlanszy; row++) {
+						printf("Trwa usuwanie planszy...\n");
+						for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 							delete[]pokoj.plansza[row];
 						}
 						delete[]pokoj.plansza;
 					}
 					
-					//
+					pokoj.wysokoscPlanszy = nowaWysokoscPlanszy;
+					pokoj.szerokoscPlanszy = nowaSzerokoscPlanszy;
+					pokoj.liczbaMinDoOznaczenia = nowaLiczbaMinDoOznaczenia;
+					
+					// stworzenie dwuwymiarowych tabel dla stanu planszy i wartosci pol planszy
 					pokoj.stanPlanszy = new int*[pokoj.wysokoscPlanszy];
 					for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 						pokoj.stanPlanszy[row] = new int[pokoj.szerokoscPlanszy];
