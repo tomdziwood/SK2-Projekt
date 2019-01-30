@@ -33,36 +33,67 @@ void wyslijDane(int fd, char *buffer, int count){
 	if(ret != count) error(0, errno, "Blad funkcji write() na deskryptorze %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
 }
 
+void rysujDostepneKomendy() {
+	printf("\n\n//---------------------------------------- Dostepne akcje ----------------------------------------\\\\\n");
+	
+	if(czyWPokoju) {
+		if(pokoj.stanGry == 1) {
+			printf("--> (\"04 %%d %%d\", numer wiersza, numer kolumny) - oznacz flaga wskazane pole\n");
+			printf("--> (\"05 %%d %%d\", numer wiersza, numer kolumny) - oznacz znakiem zapytania wskazane pole\n");
+			printf("--> (\"06 %%d %%d\", numer wiersza, numer kolumny) - ustaw wskazane pole w stanie nieoznaczenia\n");
+			printf("--> (\"07 %%d %%d\", numer wiersza, numer kolumny) - odkryj wskazane pole\n");
+			printf("--> (\"11 %%d %%d\", numer wiersza, numer kolumny) - odkryj okolice wskazanego pola na podstawie oznaczonych dookola flag\n\n");
+		}
+		printf("--> (\"08\") - opusc pokoj gry\n");
+		printf("--> (\"09\") - zrestartuj plansze\n");
+		printf("--> (\"10 %%d %%d %%d\", wysokosc planszy, szerokosc planszy, liczba min) - rozpocznij gre z nowymi parametrami\n");
+	} else {
+		printf("--> (\"01 %%s\", nazwa pokoju) - zagraj w stworzonym przez Ciebie pokoju o podanej nazwie\n");
+		printf("--> (\"02\") - odswiez liste dostepnych pokoi gier\n");
+		printf("--> (\"03 %%d\", id pokoju) - dolacz do pokoju gry o wskazanym id pokoju\n");
+	}
+	
+	printf("\\\\------------------------------------------------------------------------------------------------//\n");
+}
+
 void rysujGre() {
 	int row, col;
 	
 	system("clear");
 	
-	if(czyWPokoju) {
-		printf("Liczba min do oznaczenia:\t%d\n", pokoj.liczbaMinDoOznaczenia);
-		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
-			for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
-				if(pokoj.stanPlanszy[row][col] == 0) {
-					printf("\u2588");
-				} else if(pokoj.stanPlanszy[row][col] == 1) {
-					printf("!");
-				} else if(pokoj.stanPlanszy[row][col] == 2) {
-					printf("?");
-				} else if(pokoj.plansza[row][col] == -1) {
-					printf("*");
-				} else if(pokoj.plansza[row][col] == 0) {
-					printf(" ");
-				} else {
-					printf("%d", pokoj.plansza[row][col]);
-				}
+	printf("Liczba min do oznaczenia:\t%d\n\n", pokoj.liczbaMinDoOznaczenia);
+	for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+		for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+			if(pokoj.stanPlanszy[row][col] == 0) {
+				printf("\u2588");
+			} else if(pokoj.stanPlanszy[row][col] == 1) {
+				printf("!");
+			} else if(pokoj.stanPlanszy[row][col] == 2) {
+				printf("?");
+			} else if(pokoj.plansza[row][col] == -1) {
+				printf("*");
+			} else if(pokoj.plansza[row][col] == 0) {
+				printf(" ");
+			} else {
+				printf("%d", pokoj.plansza[row][col]);
 			}
-			printf("\n");
 		}
-		
-		
-	} else {
-		printf("Jestes w menu glownym.\n");
+		printf("\n");
 	}
+	
+	czyWPokoju = true;
+	
+	rysujDostepneKomendy();
+}
+
+void rysujMenuGlowne() {
+	system("clear");
+	
+	printf("//-- menu glowne --\\\\\n\n");
+	
+	printf("Lista dostepnych pokoi gier:\n");
+	
+	czyWPokoju = false;
 }
 
 void czytajZSerwera(int sock)
@@ -71,18 +102,15 @@ void czytajZSerwera(int sock)
 	char buffer[buffsize], tmpBuffer[buffsize];
 	int poczatek, koniec, count = 0;
 	
-	int kod, row, col, id, nowaWysokoscPlanszy, nowaSzerokoscPlanszy, nowaLiczbaMinDoOznaczenia;
+	int kod, row, col, id, nowaWysokoscPlanszy, nowaSzerokoscPlanszy;
 	char *tresc;
 	
 	pokoj.wysokoscPlanszy = 0;
 	pokoj.szerokoscPlanszy = 0;
-	czyWPokoju = false;
 	
 	// read from socket, write to stdout
     while(true)
     {
-		rysujGre();
-		
         received = odbierzDane(sock, buffer, buffsize);
 		buffer[received] = '\0';
 		
@@ -133,7 +161,7 @@ void czytajZSerwera(int sock)
 					
 				} else if(kod == 4) {
 					// serwer przesyla ilosc min pozostala do odznaczenia
-					nowaLiczbaMinDoOznaczenia = strtol(tresc, &tresc, 10);
+					pokoj.liczbaMinDoOznaczenia = strtol(tresc, &tresc, 10);
 					
 					
 				} else if(kod == 5) {
@@ -156,13 +184,11 @@ void czytajZSerwera(int sock)
 					
 					if((pokoj.wysokoscPlanszy != 0) || (pokoj.szerokoscPlanszy != 0)) {
 						// trzeba zwolnic pamiec po pozostalej planszy
-						printf("Trwa usuwanie stanu planszy...\n");
 						for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 							delete[]pokoj.stanPlanszy[row];
 						}
 						delete[]pokoj.stanPlanszy;
 						
-						printf("Trwa usuwanie planszy...\n");
 						for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 							delete[]pokoj.plansza[row];
 						}
@@ -171,7 +197,6 @@ void czytajZSerwera(int sock)
 					
 					pokoj.wysokoscPlanszy = nowaWysokoscPlanszy;
 					pokoj.szerokoscPlanszy = nowaSzerokoscPlanszy;
-					pokoj.liczbaMinDoOznaczenia = nowaLiczbaMinDoOznaczenia;
 					
 					// stworzenie dwuwymiarowych tabel dla stanu planszy i wartosci pol planszy
 					pokoj.stanPlanszy = new int*[pokoj.wysokoscPlanszy];
@@ -190,7 +215,22 @@ void czytajZSerwera(int sock)
 						}
 					}
 					
-					czyWPokoju = true;
+					pokoj.stanGry = 1;
+					
+					
+				} else if(kod == 8) {
+					// serwer daje znac, ze przeslal juz wszystkie informacje na temat konsekwencji wykonanego ostatnio ruchu
+					rysujGre();
+					
+					
+				} else if(kod == 9) {
+					// serwer daje znac, ze klient znajduje sie w menu glownym gry
+					rysujMenuGlowne();
+					
+					
+				} else if(kod == 10) {
+					// serwer daje znac, ze zakonczyl juz przesylanie listy dostepnych serwerow
+					rysujDostepneKomendy();
 				}
 			}
 		}
@@ -225,11 +265,11 @@ int main(int argc, char ** argv){
 	
 	// create socket
 	int sock = socket(resolved->ai_family, resolved->ai_socktype, 0);
-	if(sock == -1) error(1, errno, "socket failed");
+	if(sock == -1) error(1, errno, "Blad podczas socket()");
 	
 	// attept to connect
 	res = connect(sock, resolved->ai_addr, resolved->ai_addrlen);
-	if(res) error(1, errno, "connect failed");
+	if(res) error(1, errno, "Blad podczas connect()");
 	
 	// free memory
 	freeaddrinfo(resolved);

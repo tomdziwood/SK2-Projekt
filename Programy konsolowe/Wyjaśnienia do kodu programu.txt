@@ -37,6 +37,12 @@
 		Format: ("06 %d %d %d", numer wiersza, numer kolumny, wartoœæ pola planszy)
 07 - polecenie rozpoczecia nowej gry
 		Format: ("07")
+08 - podanie sygnalu, ¿e zosta³y przeprowadzone wszystkie zmiany pól zwi¹zane z wykonaniem jednego ruchu
+		Format: ("08")
+09 - podanie sygnalu, ¿e klient znajduje siê w menu g³ównym
+		Format: ("09")
+10 - podanie sygnalu, ¿e zakoñczono przesy³anie dostêpnych pokojów
+		Format: ("10")
 
 ////-------- Stan pola planszy --------\\\\
 0 - zakryte
