@@ -482,7 +482,31 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				
 				biezacyPokoj = NULL;
 				
-				printf("Zakonczono opuszczanie pokoju.\n");
+				
+				// wysylanie spisu dostepnych pokoi gier
+				strcpy(buffer, "01 ");
+				printf("Trwa wysylanie listy pokoi...\n");
+				
+				std::list<room>::iterator it;
+				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+					// zapisanie do wiadomosci id pokoju
+					itoa(it->id, tmpBuffer, 10);
+					strcpy(&buffer[3], tmpBuffer);
+					
+					// zapisanie do wiadomosci nazwy pokoju
+					count = strlen(buffer);
+					buffer[count] = ' ';
+					strcpy(&buffer[count + 1], it->nazwa);
+					
+					// zakonczenie wiadomosci znakiem konca lini
+					zakonczWiadomoscZnakiemKoncaLini(buffer);
+					
+					// wyslanie wiadomosci
+					count = strlen(buffer);
+					write(clientFd, buffer, count);
+				}
+				
+				printf("Zakonczono opuszczanie pokoju i wysylanie listy dostepnych pokoi gier.\n");
 				
 				
 			} else if(kod == 9) {
