@@ -89,10 +89,10 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 		received = read(clientFd, buffer, 255);
 		buffer[received] = '\0';
 
-		printf("\n//-------------------- ");
+		/*printf("\n//-------------------- ");
 		printf("(fd: %d) Nowy komunikat od: %s:%hu o dlugosci %d\n", clientFd, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), received);
 		printf("%s\n", buffer);
-		printf("\\\\--------------------\n");
+		printf("\\\\--------------------\n");*/
 
 		if(received < 1) {
 			printf("Usuwanie klienta %d\n", clientFd);
@@ -102,7 +102,6 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 		} else {
 			poczatek = 0;
 			koniec = 0;
-			printf("Wydzielone wiadomosci:\n");
 			while(koniec != received) {
 				// poszukiwanie znaku konca linii
 				while((koniec != received) && (buffer[koniec] != '\n')) {
@@ -119,7 +118,7 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 				if(koniec != received) {
 					// znaleziono znak konca linii -> komenda jest kompletna
 					komenda[indeks] = '\0';
-					printf("(indeks = %d):\t|%s|\n", indeks, komenda);
+					printf("\n(fd: %d) Otrzymana komenda:\t|%s|\n", clientFd, komenda);
 					
 					// przygotowanie indeksow do wydzielenia kolejnej komendy
 					indeks = 0;

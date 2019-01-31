@@ -33,6 +33,21 @@ void wyslijDane(int fd, char *buffer, int count){
 	if(ret != count) error(0, errno, "Blad funkcji write() na deskryptorze %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
 }
 
+int podajLiczbeCyfr(int x) {
+	if(x == 0) {
+		return 1;
+	}
+	
+	int wynik = 0;
+	
+	while(x) {
+		x /= 10;
+		wynik++;
+	}
+	
+	return wynik;
+}
+
 void rysujDostepneKomendy() {
 	printf("\n\n//---------------------------------------- Dostepne akcje ----------------------------------------\\\\\n");
 	
@@ -63,6 +78,12 @@ void rysujGre() {
 	
 	printf("Liczba min do oznaczenia:\t%d\n\n", pokoj.liczbaMinDoOznaczenia);
 	for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
+		if(row == 0) {
+			printf("    0|");
+		} else {
+			printf("%5.d|", row);
+		}
+		
 		for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
 			if(pokoj.stanPlanszy[row][col] == 0) {
 				printf("\u2588");
@@ -78,6 +99,7 @@ void rysujGre() {
 				printf("%d", pokoj.plansza[row][col]);
 			}
 		}
+		
 		printf("\n");
 	}
 	
