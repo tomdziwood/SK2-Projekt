@@ -48,6 +48,26 @@ int podajLiczbeCyfr(int x) {
 	return wynik;
 }
 
+int podajNtaCyfre(int x, int n) {
+	int wynik = x % 10;
+	
+	if((x == 0) && (n == 1)) {
+		return 0;
+	}
+	
+	while(n != 1) {
+		x /= 10;
+		wynik = x % 10;
+		n--;
+	}
+	
+	if((wynik == 0) && (x == 0)) {
+		return -1;
+	}
+	
+	return wynik;
+}
+
 void rysujDostepneKomendy() {
 	printf("\n\n//---------------------------------------- Dostepne akcje ----------------------------------------\\\\\n");
 	
@@ -72,16 +92,38 @@ void rysujDostepneKomendy() {
 }
 
 void rysujGre() {
-	int row, col;
+	int row, col, liczbaCyfr, cyfra;
+	
+	liczbaCyfr = podajLiczbeCyfr(pokoj.szerokoscPlanszy - 1);
 	
 	system("clear");
 	
 	printf("Liczba min do oznaczenia:\t%d\n\n", pokoj.liczbaMinDoOznaczenia);
+	
+	for(row = liczbaCyfr; row > 0; row--) {
+		printf("      ");
+		for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+			cyfra = podajNtaCyfre(col, row);
+			if(cyfra != -1) {
+				printf("%d", cyfra);
+			} else {
+				printf(" ");
+			}
+		}
+		printf("\n");
+	}
+	
+	printf("     \u250C");
+	for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+		printf("\u2500");
+	}
+	printf("\u2510\n");
+	
 	for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
 		if(row == 0) {
-			printf("    0|");
+			printf("    0\u2502");
 		} else {
-			printf("%5.d|", row);
+			printf("%5.d\u2502", row);
 		}
 		
 		for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
@@ -100,8 +142,14 @@ void rysujGre() {
 			}
 		}
 		
-		printf("\n");
+		printf("\u2502\n");
 	}
+	
+	printf("     \u2514");
+	for(col = 0; col < pokoj.szerokoscPlanszy; col++) {
+		printf("\u2500");
+	}
+	printf("\u2518\n");
 	
 	czyWPokoju = true;
 	
