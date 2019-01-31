@@ -70,652 +70,682 @@ void odkryjBomby(room *biezacyPokoj, int *tablica, char *buffer, char *tmpBuffer
 
 void wyslijDane(int fd, char *buffer, int count);
 
+void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *(&biezacyPokoj));
+
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
-	long long int kod;
-	room tmpPokoj, *biezacyPokoj = NULL;
-	char buffer[256], tmpBuffer[256], *tresc;
-	int count, i, j, tablica[10], row, col;
+	room *biezacyPokoj = NULL;
+	char buffer[256], komenda[256];
+	int tablica[10];
+	int poczatek, koniec, indeks = 0, received;
 	
-	
-	// wyslanie sygnalu o znajdowaniu sie gracza w menu glownym
-	strcpy(buffer, "09");
-	wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-	
-	// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
-	strcpy(buffer, "10");
-	wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+	// wyslanie listy pokoi gier dla swiezo polaczonego gracza
+	strcpy(komenda, "02");
+	zinterpretujKomendeKlienta(clientFd, komenda, tablica, biezacyPokoj);
 
 	while(true)
 	{
 		// odczytywanie wiadomosci od klienta
-		count = read(clientFd, buffer, 255);
-		i = count - 1;
-		while((i >= 0) && (buffer[i] == '\n')) {
-			buffer[i] = '\0';
-			i--;
-		}
+		received = read(clientFd, buffer, 255);
+		buffer[received] = '\0';
 
 		printf("\n//-------------------- ");
-		printf("(fd: %d) Nowy komunikat od: %s:%hu o dlugosci %d\n", clientFd, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), count);
+		printf("(fd: %d) Nowy komunikat od: %s:%hu o dlugosci %d\n", clientFd, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), received);
 		printf("%s\n", buffer);
 		printf("\\\\--------------------\n");
 
-		if(count < 1) {
+		if(received < 1) {
 			printf("Usuwanie klienta %d\n", clientFd);
 			clientFds.erase(clientFd);
 			close(clientFd);
 			break;
-		} else if(count >= 3) {
-			kod = strtol(buffer, &tresc, 10);
-
+		} else {
+			poczatek = 0;
+			koniec = 0;
+			printf("Wydzielone wiadomosci:\n");
+			while(koniec != received) {
+				// poszukiwanie znaku konca linii
+				while((koniec != received) && (buffer[koniec] != '\n')) {
+					koniec++;
+				}
+				
+				// kopiowanie komendy do lancucha komenda
+				while(poczatek != koniec) {
+					komenda[indeks] = buffer[poczatek];
+					poczatek++;
+					indeks++;
+				}
+				
+				if(koniec != received) {
+					// znaleziono znak konca linii -> komenda jest kompletna
+					komenda[indeks] = '\0';
+					printf("(indeks = %d):\t|%s|\n", indeks, komenda);
+					
+					// przygotowanie indeksow do wydzielenia kolejnej komendy
+					indeks = 0;
+					koniec++;
+					poczatek = koniec;
+					
+					zinterpretujKomendeKlienta(clientFd, komenda, tablica, biezacyPokoj);
+				}
+			}
+		}
+	}
+}
+		
+void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *(&biezacyPokoj)) {
+	long long int kod;
+	int row, col, i, j, count;
+	char *tresc, tmpBuffer[256];
+	room tmpPokoj;
+	
+	
+	kod = strtol(buffer, &tresc, 10);
+	
+	if(kod == 1) {
+		// klient prosi o utworzenie nowego pokoju gry
+		while(tresc[0] == ' ') {
+			//tresc = &tresc[1];
+			tresc += sizeof(char);
+		}
+		printf("Trwa dodawanie pokoju o nazwie: |%s|...\n", tresc);
+		
+		if(biezacyPokoj != NULL) {
+			printf("Blad - nie mozna utworzyc nowego pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+			return;
+		}
+		
+		strcpy(tmpPokoj.nazwa, tresc);
+		tmpPokoj.id = liczbaGier;
+		tmpPokoj.liczbaGraczy = 0;
+		
+		ustawNowaGre(tmpPokoj, 10, 10, 10);
+		dodajGraczaDoPokoju(tmpPokoj, clientFd);
+		
+		pokojeGier.push_back(tmpPokoj);
+		biezacyPokoj = &(pokojeGier.back());
+		liczbaGier++;
+		
+		/*printf("nazwa pokoju przed: |%s|\n", biezacyPokoj->nazwa);
+		printf("nazwa pokoju w globalnej liscie przed: |%s|\n", pokojeGier.back().nazwa);
+		strcpy(biezacyPokoj->nazwa, "lololo");
+		printf("nazwa pokoju po zmianie: |%s|\n", biezacyPokoj->nazwa);
+		printf("nazwa pokoju w globalnej liście po: |%s|\n", pokojeGier.back().nazwa);*/
+		
+		// wyslanie informacji o stanie gry
+		strcpy(buffer, "02");
+		tablica[0] = biezacyPokoj->stanGry;
+		wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie informacji o wysokosci i szerokosci planszy
+		strcpy(buffer, "03");
+		tablica[0] = biezacyPokoj->wysokoscPlanszy;
+		tablica[1] = biezacyPokoj->szerokoscPlanszy;
+		wyslijLiczby(clientFd, tablica, 2, buffer, tmpBuffer);
+		
+		// wyslanie informacji o pozostalej liczbie min do odznaczenia
+		strcpy(buffer, "04");
+		tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+		wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie polecenia o rozpoczeciu nowej gry
+		strcpy(buffer, "07");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono dodawanie pokoju.\n");
+		
+		
+	} else if(kod == 2) {
+		// klient prosi o otrzymanie spisu dostepnych pokoi gier
+		printf("Trwa wysylanie listy pokoi...\n");
+		
+		if(biezacyPokoj != NULL) {
+			printf("Blad - nie mozna pytac sie o spis dostepnych pokoi, skoro nadal sie gra w jednym z pokojow.\n");
+			return;
+		}
+		
+		// wyslanie sygnalu o znajdowaniu sie gracza w menu glownym
+		strcpy(buffer, "09");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		strcpy(buffer, "01 ");
+		std::list<room>::iterator it;
+		for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+			// zapisanie do wiadomosci id pokoju
+			itoa(it->id, tmpBuffer, 10);
+			strcpy(&buffer[3], tmpBuffer);
 			
-			if(kod == 1) {
-				// klient prosi o utworzenie nowego pokoju gry
-				while(tresc[0] == ' ') {
-					//tresc = &tresc[1];
-					tresc += sizeof(char);
-				}
-				printf("Trwa dodawanie pokoju o nazwie: |%s|...\n", tresc);
-				
-				if(biezacyPokoj != NULL) {
-					printf("Blad - nie mozna utworzyc nowego pokoju, skoro nadal sie gra w jednym z pokojow.\n");
-					continue;
-				}
-				
-				strcpy(tmpPokoj.nazwa, tresc);
-				tmpPokoj.id = liczbaGier;
-				tmpPokoj.liczbaGraczy = 0;
-				
-				ustawNowaGre(tmpPokoj, 10, 10, 10);
-				dodajGraczaDoPokoju(tmpPokoj, clientFd);
-				
-				pokojeGier.push_back(tmpPokoj);
-				biezacyPokoj = &(pokojeGier.back());
-				liczbaGier++;
-				
-				/*printf("nazwa pokoju przed: |%s|\n", biezacyPokoj->nazwa);
-				printf("nazwa pokoju w globalnej liscie przed: |%s|\n", pokojeGier.back().nazwa);
-				strcpy(biezacyPokoj->nazwa, "lololo");
-				printf("nazwa pokoju po zmianie: |%s|\n", biezacyPokoj->nazwa);
-				printf("nazwa pokoju w globalnej liście po: |%s|\n", pokojeGier.back().nazwa);*/
-				
-				// wyslanie informacji o stanie gry
-				strcpy(buffer, "02");
-				tablica[0] = biezacyPokoj->stanGry;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie informacji o wysokosci i szerokosci planszy
-				strcpy(buffer, "03");
-				tablica[0] = biezacyPokoj->wysokoscPlanszy;
-				tablica[1] = biezacyPokoj->szerokoscPlanszy;
-				wyslijLiczby(clientFd, tablica, 2, buffer, tmpBuffer);
-				
-				// wyslanie informacji o pozostalej liczbie min do odznaczenia
-				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie polecenia o rozpoczeciu nowej gry
-				strcpy(buffer, "07");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono dodawanie pokoju.\n");
-				
-				
-			} else if(kod == 2) {
-				// klient prosi o otrzymanie spisu dostepnych pokoi gier
-				printf("Trwa wysylanie listy pokoi...\n");
-				
-				if(biezacyPokoj != NULL) {
-					printf("Blad - nie mozna pytac sie o spis dostepnych pokoi, skoro nadal sie gra w jednym z pokojow.\n");
-					continue;
-				}
-				
-				// wyslanie sygnalu o znajdowaniu sie gracza w menu glownym
-				strcpy(buffer, "09");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				strcpy(buffer, "01 ");
-				std::list<room>::iterator it;
-				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-					// zapisanie do wiadomosci id pokoju
-					itoa(it->id, tmpBuffer, 10);
-					strcpy(&buffer[3], tmpBuffer);
-					
-					// zapisanie do wiadomosci nazwy pokoju
-					count = strlen(buffer);
-					buffer[count] = ' ';
-					strcpy(&buffer[count + 1], it->nazwa);
-					
-					// zakonczenie wiadomosci znakiem konca lini
-					zakonczWiadomoscZnakiemKoncaLini(buffer);
-					
-					// wyslanie wiadomosci
-					count = strlen(buffer);
-					//write(clientFd, buffer, count);
-					wyslijDane(clientFd, buffer, count);
-				}
-				
-				// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
-				strcpy(buffer, "10");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono wysylanie listy pokoi.\n");
-				
-				
-			} else if(kod == 3) {
-				// klient prosi o dolaczenie go do wskazanego pokoju (o danym id)
-				i = strtol(tresc, NULL, 10);
-				printf("Trwa dolaczanie do wybranego pokoju...\n");
-				
-				if(biezacyPokoj != NULL) {
-					printf("Blad - nie mozna dolaczac sie do pokoju, skoro nadal sie gra w jednym z pokojow.\n");
-					continue;
-				}
-				
-				std::list<room>::iterator it;
-				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-					if(it->id == i) {
-						break;
-					}
-				}
-				
-				if(it == pokojeGier.end()) {
-					printf("Blad - klient %d prosi o nieistniejacy pokoj.\n", clientFd);
-					continue;
-				}
-				
-				dodajGraczaDoPokoju(*it, clientFd);
-				biezacyPokoj = &(*it);
-				
-				// wyslanie informacji o stanie gry
-				strcpy(buffer, "02");
-				tablica[0] = biezacyPokoj->stanGry;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie informacji o wysokosci i szerokosci planszy
-				strcpy(buffer, "03");
-				tablica[0] = biezacyPokoj->wysokoscPlanszy;
-				tablica[1] = biezacyPokoj->szerokoscPlanszy;
-				wyslijLiczby(clientFd, tablica, 2, buffer, tmpBuffer);
-				
-				// wyslanie informacji o pozostalej liczbie min do odznaczenia
-				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
-				wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie polecenia o rozpoczeciu nowej gry
-				strcpy(buffer, "07");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				// wyslanie informacji o zmodyfikowanych polach
-				for(row=0; row < biezacyPokoj->wysokoscPlanszy; row++) {
-					for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {
-						if(biezacyPokoj->stanPlanszy[row][col] == 3) {
-							// wyslanie informacji o odkrytym polu
-							strcpy(buffer, "06");
-							tablica[0] = row;
-							tablica[1] = col;
-							tablica[2] = biezacyPokoj->plansza[row][col];
-							wyslijLiczby(clientFd, tablica, 3, buffer, tmpBuffer);
-						} else if(biezacyPokoj->stanPlanszy[row][col] != 0){
-							// wyslanie informacji o oznaczonym polu
-							strcpy(buffer, "05");
-							tablica[0] = row;
-							tablica[1] = col;
-							tablica[2] = biezacyPokoj->stanPlanszy[row][col];
-							wyslijLiczby(clientFd, tablica, 3, buffer, tmpBuffer);
-						}
-					}
-				}
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono dolaczanie do wybranego pokoju.\n");
-				
-				
-			} else if(kod == 4) {
-				// klient prosi o oznaczenie flaga danego pola
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna zadac oznaczenia flagi, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanGry != 1) {
-					printf("Blad - gra juz sie zakonczyla.\n");
-					continue;
-				}
-				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanPlanszy[row][col] != 0) {
-					printf("Blad - flage mozna oznaczyc tylko na nieoznaczonym polu.\n");
-					continue;
-				}
-				
-				biezacyPokoj->stanPlanszy[row][col] = 1;
-				biezacyPokoj->liczbaMinDoOznaczenia--;
-				
-				// wyslanie informacji o pozostalej liczbie min do odznaczenia
-				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie informacji o oznaczonym polu
-				strcpy(buffer, "05");
-				tablica[0] = row;
-				tablica[1] = col;
-				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono oznaczanie flaga.\n");
-				
-				
-			} else if(kod == 5) {
-				// klient prosi o oznaczenie znakiem zapytania danego pola
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna zadac oznaczenia znaku zapytania, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanGry != 1) {
-					printf("Blad - gra juz sie zakonczyla.\n");
-					continue;
-				}
-				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanPlanszy[row][col] != 1) {
-					printf("Blad - znak zapytania mozna oznaczyc tylko na polu oznaczonym flaga.\n");
-					continue;
-				}
-				
-				biezacyPokoj->stanPlanszy[row][col] = 2;
-				biezacyPokoj->liczbaMinDoOznaczenia++;
-				
-				// wyslanie informacji o pozostalej liczbie min do odznaczenia
-				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie informacji o oznaczonym polu
-				strcpy(buffer, "05");
-				tablica[0] = row;
-				tablica[1] = col;
-				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono oznaczanie znakiem zapytania.\n");
-				
-				
-			} else if(kod == 6) {
-				// klient prosi o nieoznaczenie danego pola
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanGry != 1) {
-					printf("Blad - gra juz sie zakonczyla.\n");
-					continue;
-				}
-				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanPlanszy[row][col] != 2) {
-					printf("Blad - nieoznaczyc mozna tylko pole oznaczone znakiem zapytania.\n");
-					continue;
-				}
-				
-				biezacyPokoj->stanPlanszy[row][col] = 0;
-				
-				// wyslanie informacji o nieoznaczonym polu
-				strcpy(buffer, "05");
-				tablica[0] = row;
-				tablica[1] = col;
-				tablica[2] = biezacyPokoj->stanPlanszy[row][col];
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono nieoznaczanie.\n");
-				
-				
-			} else if(kod == 7) {
-				// klient prosi o odkrycie danego pola
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanGry != 1) {
-					printf("Blad - gra juz sie zakonczyla.\n");
-					continue;
-				}
-				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
-					continue;
-				}
-				
-				if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
-					printf("Blad - odkryc mozna tylko pole nieoznaczone lub oznaczone znakiem zapytania.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->plansza[row][col] > 0) {
-					printf("Odkryto w polu (%d, %d) liczbe %d\n", row, col, biezacyPokoj->plansza[row][col]);
-					biezacyPokoj->stanPlanszy[row][col] = 3;
-					biezacyPokoj->liczbaNieodkrytychPol--;
-					
-					// wyslanie informacji o odkrytym polu z liczba
+			// zapisanie do wiadomosci nazwy pokoju
+			count = strlen(buffer);
+			buffer[count] = ' ';
+			strcpy(&buffer[count + 1], it->nazwa);
+			
+			// zakonczenie wiadomosci znakiem konca lini
+			zakonczWiadomoscZnakiemKoncaLini(buffer);
+			
+			// wyslanie wiadomosci
+			count = strlen(buffer);
+			//write(clientFd, buffer, count);
+			wyslijDane(clientFd, buffer, count);
+		}
+		
+		// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
+		strcpy(buffer, "10");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono wysylanie listy pokoi.\n");
+		
+		
+	} else if(kod == 3) {
+		// klient prosi o dolaczenie go do wskazanego pokoju (o danym id)
+		i = strtol(tresc, NULL, 10);
+		printf("Trwa dolaczanie do wybranego pokoju...\n");
+		
+		if(biezacyPokoj != NULL) {
+			printf("Blad - nie mozna dolaczac sie do pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+			return;
+		}
+		
+		std::list<room>::iterator it;
+		for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+			if(it->id == i) {
+				break;
+			}
+		}
+		
+		if(it == pokojeGier.end()) {
+			printf("Blad - klient %d prosi o nieistniejacy pokoj.\n", clientFd);
+			return;
+		}
+		
+		dodajGraczaDoPokoju(*it, clientFd);
+		biezacyPokoj = &(*it);
+		
+		// wyslanie informacji o stanie gry
+		strcpy(buffer, "02");
+		tablica[0] = biezacyPokoj->stanGry;
+		wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie informacji o wysokosci i szerokosci planszy
+		strcpy(buffer, "03");
+		tablica[0] = biezacyPokoj->wysokoscPlanszy;
+		tablica[1] = biezacyPokoj->szerokoscPlanszy;
+		wyslijLiczby(clientFd, tablica, 2, buffer, tmpBuffer);
+		
+		// wyslanie informacji o pozostalej liczbie min do odznaczenia
+		strcpy(buffer, "04");
+		tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+		wyslijLiczby(clientFd, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie polecenia o rozpoczeciu nowej gry
+		strcpy(buffer, "07");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		// wyslanie informacji o zmodyfikowanych polach
+		for(row=0; row < biezacyPokoj->wysokoscPlanszy; row++) {
+			for(col = 0; col < biezacyPokoj->szerokoscPlanszy; col++) {
+				if(biezacyPokoj->stanPlanszy[row][col] == 3) {
+					// wyslanie informacji o odkrytym polu
 					strcpy(buffer, "06");
 					tablica[0] = row;
 					tablica[1] = col;
 					tablica[2] = biezacyPokoj->plansza[row][col];
-					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-					
-					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
-						biezacyPokoj->stanGry = 2;
-						
-						// wysylanie informacji o wygranej grze
-						strcpy(buffer, "02");
-						tablica[0] = 2;
-						wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-					}
-				} else if(biezacyPokoj->plansza[row][col] == 0) {
-					printf("Odkryto puste pole (%d, %d)\n", row, col);
-					
-					odkryjPlanszeFloodFill(biezacyPokoj, row, col, tablica, buffer, tmpBuffer);
-					
-					if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
-						biezacyPokoj->stanGry = 2;
-						
-						// wysylanie informacji o wygranej grze
-						strcpy(buffer, "02");
-						tablica[0] = 2;
-						wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-					}
-				} else {
-					printf("Trafiono bombe na polu (%d, %d)\n", row, col);
-					biezacyPokoj->stanGry = 0;
-					
-					// wyslanie informacji o przegranej grze
-					strcpy(buffer, "02");
-					tablica[0] = 0;
-					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-					
-					odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
+					wyslijLiczby(clientFd, tablica, 3, buffer, tmpBuffer);
+				} else if(biezacyPokoj->stanPlanszy[row][col] != 0){
+					// wyslanie informacji o oznaczonym polu
+					strcpy(buffer, "05");
+					tablica[0] = row;
+					tablica[1] = col;
+					tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+					wyslijLiczby(clientFd, tablica, 3, buffer, tmpBuffer);
 				}
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono odkrywanie pola.\n");
-				
-				
-			} else if(kod == 8) {
-				// klient prosi o wyjscie z biezacego pokoju
-				printf("Trwa opuszczanie pokoju...\n");
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna opuscic pokoju, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				i = 0;
-				while(biezacyPokoj->gracze[i] != clientFd) {
-					i++;
-				}
-				biezacyPokoj->liczbaGraczy--;
-				biezacyPokoj->gracze[i] = biezacyPokoj->gracze[ biezacyPokoj->liczbaGraczy ];
-				
-				if(biezacyPokoj->liczbaGraczy == 0) {
-					std::list<room>::iterator it;
-					for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-						if(it->id == biezacyPokoj->id) {
-							break;
-						}
-					}
-					pokojeGier.erase(it);
-				}
-				
-				biezacyPokoj = NULL;
-				
-				
-				// wyslanie sygnalu o znajdowaniu sie gracza w menu glownym
-				strcpy(buffer, "09");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				// wysylanie spisu dostepnych pokoi gier
-				strcpy(buffer, "01 ");
-				printf("Trwa wysylanie listy pokoi...\n");
-				
-				std::list<room>::iterator it;
-				for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-					// zapisanie do wiadomosci id pokoju
-					itoa(it->id, tmpBuffer, 10);
-					strcpy(&buffer[3], tmpBuffer);
-					
-					// zapisanie do wiadomosci nazwy pokoju
-					count = strlen(buffer);
-					buffer[count] = ' ';
-					strcpy(&buffer[count + 1], it->nazwa);
-					
-					// zakonczenie wiadomosci znakiem konca lini
-					zakonczWiadomoscZnakiemKoncaLini(buffer);
-					
-					// wyslanie wiadomosci
-					count = strlen(buffer);
-					//write(clientFd, buffer, count);
-					wyslijDane(clientFd, buffer, count);
-				}
-				
-				// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
-				strcpy(buffer, "10");
-				wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono opuszczanie pokoju i wysylanie listy dostepnych pokoi gier.\n");
-				
-				
-			} else if(kod == 9) {
-				// klient prosi o restartowanie planszy
-				printf("Trwa restartowanie planszy...\n");
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna restartowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				ustawNowaGre(*biezacyPokoj, biezacyPokoj->wysokoscPlanszy, biezacyPokoj->szerokoscPlanszy, biezacyPokoj->liczbaMin);
-				
-				// wyslanie polecenia rozpoczecia nowej gry
-				strcpy(buffer, "07");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono restartowanie planszy.\n");
-				
-				
-			} else if(kod == 10) {
-				// klient prosi o ustawienie nowej gry o nowych parametrach
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				count = strtol(tresc, &tresc, 10);
-				printf("Trwa ustawianie nowej gry...\n");
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna modyfikowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				ustawNowaGre(*biezacyPokoj, row, col, count);
-				
-				// wyslanie informacji o wysokosci i szerokosci planszy
-				strcpy(buffer, "03");
-				tablica[0] = biezacyPokoj->wysokoscPlanszy;
-				tablica[1] = biezacyPokoj->szerokoscPlanszy;
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 2, buffer, tmpBuffer);
-				
-				// wyslanie informacji o pozostalej liczbie min do odznaczenia
-				strcpy(buffer, "04");
-				tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-				
-				// wyslanie polecenia o rozpoczeciu nowej gry
-				strcpy(buffer, "07");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono ustawianie nowej gry.\n");
-				
-				
-			} else if(kod == 11) {
-				// klient prosi o odkrycie pól dookoła wskazanego pola z liczbą na podstawie oflagowanych już min
-				row = strtol(tresc, &tresc, 10);
-				col = strtol(tresc, &tresc, 10);
-				printf("Trwa odkrywanie pol dookola wskazanego pola z liczba...\n");
-				
-				if(biezacyPokoj == NULL) {
-					printf("Blad - nie mozna odkrywac pol, skoro nie gra sie w zadnym z pokojow.\n");
-					continue;
-				}
-				
-				if(biezacyPokoj->stanGry != 1) {
-					printf("Blad - gra juz sie zakonczyla.\n");
-					continue;
-				}
-				
-				if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
-					printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
-					continue;
-				}
-				
-				if((biezacyPokoj->stanPlanszy[row][col] != 3) || (biezacyPokoj->plansza[row][col] <= 0)) {
-					printf("Blad - odkrywac mozna tylko na podstawie odkrytej juz liczby na planszy.\n");
-					continue;
-				}
-				
-				count = 0;
-				for(i = row - 1; i <= row + 1; i++) {
-					for(j = col - 1; j <= col + 1; j++) {
-						if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] == 1)) {
-							count++;
-						}
-					}
-				}
-				
-				if(count != biezacyPokoj->plansza[row][col]) {
-					printf("Blad - liczba oznaczonych dookola flag nie zgadza sie z liczba w polu (%d, %d).\n", row, col);
-					continue;
-				}
-				
-				std::queue<int> kolejkaOdkrytychPustychPol;
-				bool bomba = false;
-				
-				for(i = row - 1; i <= row + 1; i++) {
-					for(j = col - 1; j <= col + 1; j++) {
-						if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] != 1) && (biezacyPokoj->stanPlanszy[i][j] != 3)) {
-							biezacyPokoj->stanPlanszy[i][j] = 3;
-							biezacyPokoj->liczbaNieodkrytychPol--;
-							
-							strcpy(buffer, "06");
-							tablica[0] = i;
-							tablica[1] = j;
-							tablica[2] = biezacyPokoj->plansza[i][j];
-							wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
-							
-							if((biezacyPokoj->plansza[i][j] == -1) && (bomba == false)) {
-								printf("Trafiono bombe na polu (%d, %d)\n", i, j);
-								bomba = true;
-								
-								// wysylanie informacji o przegranej grze
-								strcpy(buffer, "02");
-								tablica[0] = 0;
-								wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-							} else if(biezacyPokoj->plansza[i][j] == 0) {
-								kolejkaOdkrytychPustychPol.push(i);
-								kolejkaOdkrytychPustychPol.push(j);
-							}
-						}
-					}
-				}
-				
-				while(!kolejkaOdkrytychPustychPol.empty()) {
-					i = kolejkaOdkrytychPustychPol.front();
-					kolejkaOdkrytychPustychPol.pop();
-					j = kolejkaOdkrytychPustychPol.front();
-					kolejkaOdkrytychPustychPol.pop();
-					odkryjPlanszeFloodFill(biezacyPokoj, i, j, tablica, buffer, tmpBuffer);
-				}
-				
-				if(bomba) {
-					odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
-				} else if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
-					biezacyPokoj->stanGry = 2;
-					
-					// wysylanie informacji o wygranej grze
-					strcpy(buffer, "02");
-					tablica[0] = 2;
-					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
-				}
-				
-				// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
-				strcpy(buffer, "08");
-				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
-				
-				printf("Zakonczono odkrywanie pol dookola wskazanego pola z liczba.\n");
 			}
 		}
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono dolaczanie do wybranego pokoju.\n");
+		
+		
+	} else if(kod == 4) {
+		// klient prosi o oznaczenie flaga danego pola
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		printf("Trwa oznaczanie flaga pola (%d, %d)...\n", row, col);
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna zadac oznaczenia flagi, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanGry != 1) {
+			printf("Blad - gra juz sie zakonczyla.\n");
+			return;
+		}
+		
+		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanPlanszy[row][col] != 0) {
+			printf("Blad - flage mozna oznaczyc tylko na nieoznaczonym polu.\n");
+			return;
+		}
+		
+		biezacyPokoj->stanPlanszy[row][col] = 1;
+		biezacyPokoj->liczbaMinDoOznaczenia--;
+		
+		// wyslanie informacji o pozostalej liczbie min do odznaczenia
+		strcpy(buffer, "04");
+		tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie informacji o oznaczonym polu
+		strcpy(buffer, "05");
+		tablica[0] = row;
+		tablica[1] = col;
+		tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono oznaczanie flaga.\n");
+		
+		
+	} else if(kod == 5) {
+		// klient prosi o oznaczenie znakiem zapytania danego pola
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		printf("Trwa oznaczanie znakiem zapytania pola (%d, %d)...\n", row, col);
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna zadac oznaczenia znaku zapytania, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanGry != 1) {
+			printf("Blad - gra juz sie zakonczyla.\n");
+			return;
+		}
+		
+		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanPlanszy[row][col] != 1) {
+			printf("Blad - znak zapytania mozna oznaczyc tylko na polu oznaczonym flaga.\n");
+			return;
+		}
+		
+		biezacyPokoj->stanPlanszy[row][col] = 2;
+		biezacyPokoj->liczbaMinDoOznaczenia++;
+		
+		// wyslanie informacji o pozostalej liczbie min do odznaczenia
+		strcpy(buffer, "04");
+		tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie informacji o oznaczonym polu
+		strcpy(buffer, "05");
+		tablica[0] = row;
+		tablica[1] = col;
+		tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono oznaczanie znakiem zapytania.\n");
+		
+		
+	} else if(kod == 6) {
+		// klient prosi o nieoznaczenie danego pola
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		printf("Trwa nieoznaczanie pola (%d, %d)...\n", row, col);
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanGry != 1) {
+			printf("Blad - gra juz sie zakonczyla.\n");
+			return;
+		}
+		
+		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanPlanszy[row][col] != 2) {
+			printf("Blad - nieoznaczyc mozna tylko pole oznaczone znakiem zapytania.\n");
+			return;
+		}
+		
+		biezacyPokoj->stanPlanszy[row][col] = 0;
+		
+		// wyslanie informacji o nieoznaczonym polu
+		strcpy(buffer, "05");
+		tablica[0] = row;
+		tablica[1] = col;
+		tablica[2] = biezacyPokoj->stanPlanszy[row][col];
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono nieoznaczanie.\n");
+		
+		
+	} else if(kod == 7) {
+		// klient prosi o odkrycie danego pola
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		printf("Trwa odkrywanie pola (%d, %d)...\n", row, col);
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanGry != 1) {
+			printf("Blad - gra juz sie zakonczyla.\n");
+			return;
+		}
+		
+		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			return;
+		}
+		
+		if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
+			printf("Blad - odkryc mozna tylko pole nieoznaczone lub oznaczone znakiem zapytania.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->plansza[row][col] > 0) {
+			printf("Odkryto w polu (%d, %d) liczbe %d\n", row, col, biezacyPokoj->plansza[row][col]);
+			biezacyPokoj->stanPlanszy[row][col] = 3;
+			biezacyPokoj->liczbaNieodkrytychPol--;
+			
+			// wyslanie informacji o odkrytym polu z liczba
+			strcpy(buffer, "06");
+			tablica[0] = row;
+			tablica[1] = col;
+			tablica[2] = biezacyPokoj->plansza[row][col];
+			wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+			
+			if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+				biezacyPokoj->stanGry = 2;
+				
+				// wysylanie informacji o wygranej grze
+				strcpy(buffer, "02");
+				tablica[0] = 2;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+			}
+		} else if(biezacyPokoj->plansza[row][col] == 0) {
+			printf("Odkryto puste pole (%d, %d)\n", row, col);
+			
+			odkryjPlanszeFloodFill(biezacyPokoj, row, col, tablica, buffer, tmpBuffer);
+			
+			if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+				biezacyPokoj->stanGry = 2;
+				
+				// wysylanie informacji o wygranej grze
+				strcpy(buffer, "02");
+				tablica[0] = 2;
+				wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+			}
+		} else {
+			printf("Trafiono bombe na polu (%d, %d)\n", row, col);
+			biezacyPokoj->stanGry = 0;
+			
+			// wyslanie informacji o przegranej grze
+			strcpy(buffer, "02");
+			tablica[0] = 0;
+			wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+			
+			odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
+		}
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono odkrywanie pola.\n");
+		
+		
+	} else if(kod == 8) {
+		// klient prosi o wyjscie z biezacego pokoju
+		printf("Trwa opuszczanie pokoju...\n");
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna opuscic pokoju, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		i = 0;
+		while(biezacyPokoj->gracze[i] != clientFd) {
+			i++;
+		}
+		biezacyPokoj->liczbaGraczy--;
+		biezacyPokoj->gracze[i] = biezacyPokoj->gracze[ biezacyPokoj->liczbaGraczy ];
+		
+		if(biezacyPokoj->liczbaGraczy == 0) {
+			std::list<room>::iterator it;
+			for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+				if(it->id == biezacyPokoj->id) {
+					break;
+				}
+			}
+			pokojeGier.erase(it);
+		}
+		
+		biezacyPokoj = NULL;
+		
+		
+		// wyslanie sygnalu o znajdowaniu sie gracza w menu glownym
+		strcpy(buffer, "09");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		// wysylanie spisu dostepnych pokoi gier
+		strcpy(buffer, "01 ");
+		printf("Trwa wysylanie listy pokoi...\n");
+		
+		std::list<room>::iterator it;
+		for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+			// zapisanie do wiadomosci id pokoju
+			itoa(it->id, tmpBuffer, 10);
+			strcpy(&buffer[3], tmpBuffer);
+			
+			// zapisanie do wiadomosci nazwy pokoju
+			count = strlen(buffer);
+			buffer[count] = ' ';
+			strcpy(&buffer[count + 1], it->nazwa);
+			
+			// zakonczenie wiadomosci znakiem konca lini
+			zakonczWiadomoscZnakiemKoncaLini(buffer);
+			
+			// wyslanie wiadomosci
+			count = strlen(buffer);
+			//write(clientFd, buffer, count);
+			wyslijDane(clientFd, buffer, count);
+		}
+		
+		// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
+		strcpy(buffer, "10");
+		wyslijLiczby(clientFd, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono opuszczanie pokoju i wysylanie listy dostepnych pokoi gier.\n");
+		
+		
+	} else if(kod == 9) {
+		// klient prosi o restartowanie planszy
+		printf("Trwa restartowanie planszy...\n");
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna restartowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		ustawNowaGre(*biezacyPokoj, biezacyPokoj->wysokoscPlanszy, biezacyPokoj->szerokoscPlanszy, biezacyPokoj->liczbaMin);
+		
+		// wyslanie polecenia rozpoczecia nowej gry
+		strcpy(buffer, "07");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono restartowanie planszy.\n");
+		
+		
+	} else if(kod == 10) {
+		// klient prosi o ustawienie nowej gry o nowych parametrach
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		count = strtol(tresc, &tresc, 10);
+		printf("Trwa ustawianie nowej gry...\n");
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna modyfikowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		ustawNowaGre(*biezacyPokoj, row, col, count);
+		
+		// wyslanie informacji o wysokosci i szerokosci planszy
+		strcpy(buffer, "03");
+		tablica[0] = biezacyPokoj->wysokoscPlanszy;
+		tablica[1] = biezacyPokoj->szerokoscPlanszy;
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 2, buffer, tmpBuffer);
+		
+		// wyslanie informacji o pozostalej liczbie min do odznaczenia
+		strcpy(buffer, "04");
+		tablica[0] = biezacyPokoj->liczbaMinDoOznaczenia;
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+		
+		// wyslanie polecenia o rozpoczeciu nowej gry
+		strcpy(buffer, "07");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono ustawianie nowej gry.\n");
+		
+		
+	} else if(kod == 11) {
+		// klient prosi o odkrycie pól dookoła wskazanego pola z liczbą na podstawie oflagowanych już min
+		row = strtol(tresc, &tresc, 10);
+		col = strtol(tresc, &tresc, 10);
+		printf("Trwa odkrywanie pol dookola wskazanego pola z liczba...\n");
+		
+		if(biezacyPokoj == NULL) {
+			printf("Blad - nie mozna odkrywac pol, skoro nie gra sie w zadnym z pokojow.\n");
+			return;
+		}
+		
+		if(biezacyPokoj->stanGry != 1) {
+			printf("Blad - gra juz sie zakonczyla.\n");
+			return;
+		}
+		
+		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
+			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			return;
+		}
+		
+		if((biezacyPokoj->stanPlanszy[row][col] != 3) || (biezacyPokoj->plansza[row][col] <= 0)) {
+			printf("Blad - odkrywac mozna tylko na podstawie odkrytej juz liczby na planszy.\n");
+			return;
+		}
+		
+		count = 0;
+		for(i = row - 1; i <= row + 1; i++) {
+			for(j = col - 1; j <= col + 1; j++) {
+				if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] == 1)) {
+					count++;
+				}
+			}
+		}
+		
+		if(count != biezacyPokoj->plansza[row][col]) {
+			printf("Blad - liczba oznaczonych dookola flag nie zgadza sie z liczba w polu (%d, %d).\n", row, col);
+			return;
+		}
+		
+		std::queue<int> kolejkaOdkrytychPustychPol;
+		bool bomba = false;
+		
+		for(i = row - 1; i <= row + 1; i++) {
+			for(j = col - 1; j <= col + 1; j++) {
+				if((i >= 0) && (i < biezacyPokoj->wysokoscPlanszy) && (j >= 0) && (j < biezacyPokoj->szerokoscPlanszy) && (biezacyPokoj->stanPlanszy[i][j] != 1) && (biezacyPokoj->stanPlanszy[i][j] != 3)) {
+					biezacyPokoj->stanPlanszy[i][j] = 3;
+					biezacyPokoj->liczbaNieodkrytychPol--;
+					
+					strcpy(buffer, "06");
+					tablica[0] = i;
+					tablica[1] = j;
+					tablica[2] = biezacyPokoj->plansza[i][j];
+					wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 3, buffer, tmpBuffer);
+					
+					if((biezacyPokoj->plansza[i][j] == -1) && (bomba == false)) {
+						printf("Trafiono bombe na polu (%d, %d)\n", i, j);
+						bomba = true;
+						
+						// wysylanie informacji o przegranej grze
+						strcpy(buffer, "02");
+						tablica[0] = 0;
+						wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+					} else if(biezacyPokoj->plansza[i][j] == 0) {
+						kolejkaOdkrytychPustychPol.push(i);
+						kolejkaOdkrytychPustychPol.push(j);
+					}
+				}
+			}
+		}
+		
+		while(!kolejkaOdkrytychPustychPol.empty()) {
+			i = kolejkaOdkrytychPustychPol.front();
+			kolejkaOdkrytychPustychPol.pop();
+			j = kolejkaOdkrytychPustychPol.front();
+			kolejkaOdkrytychPustychPol.pop();
+			odkryjPlanszeFloodFill(biezacyPokoj, i, j, tablica, buffer, tmpBuffer);
+		}
+		
+		if(bomba) {
+			odkryjBomby(biezacyPokoj, tablica, buffer, tmpBuffer);
+		} else if(biezacyPokoj->liczbaNieodkrytychPol == biezacyPokoj->liczbaMin) {
+			biezacyPokoj->stanGry = 2;
+			
+			// wysylanie informacji o wygranej grze
+			strcpy(buffer, "02");
+			tablica[0] = 2;
+			wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 1, buffer, tmpBuffer);
+		}
+		
+		// wyslanie sygnalu o ukonczeniu transmisji dokonanych zmian na planszy
+		strcpy(buffer, "08");
+		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
+		
+		printf("Zakonczono odkrywanie pol dookola wskazanego pola z liczba.\n");
 	}
 }
 
