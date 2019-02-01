@@ -32,7 +32,6 @@ int servFd;
 std::unordered_set<int> clientFds;
 
 // przechowywanie informacji o aktywnych grach
-//std::vector<room> pokojeGier;
 std::list<room> pokojeGier;
 int liczbaGier = 0;
 
@@ -72,11 +71,15 @@ void wyslijDane(int fd, char *buffer, int count);
 
 void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *(&biezacyPokoj));
 
+int ideksKlientaWPokoju(int clientFd, room *pokoj);
+
+void zwolnijPamiecPlansz(room *pokoj);
+
 void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 {
 	room *biezacyPokoj = NULL;
 	char buffer[256], komenda[256];
-	int tablica[10];
+	int tablica[10], i;
 	int poczatek, koniec, indeks = 0, received;
 	
 	// wyslanie listy pokoi gier dla swiezo polaczonego gracza
@@ -95,9 +98,32 @@ void odczytajWiadomosc(int clientFd, sockaddr_in clientAddr)
 		printf("\\\\--------------------\n");*/
 
 		if(received < 1) {
-			printf("Usuwanie klienta %d\n", clientFd);
+			printf("\nTrwa usuwanie klienta %d\n", clientFd);
 			clientFds.erase(clientFd);
 			close(clientFd);
+			
+			i = -1;
+			std::list<room>::iterator it;
+			for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
+				i = ideksKlientaWPokoju(clientFd, &(*it));
+				if(i != -1) {
+					break;
+				}
+			}
+			
+			if(i != -1) {
+				// wypisanie usuwanego klienta z pokoju gry
+				it->liczbaGraczy--;
+				it->gracze[i] = it->gracze[ it->liczbaGraczy ];
+				
+				if(it->liczbaGraczy == 0) {
+					// usuniecie pustego pokoju z listy pokoi gier
+					zwolnijPamiecPlansz(&(*it));
+					pokojeGier.erase(it);
+				}
+			}
+			
+			printf("Zakonczono usuwanie klienta %d\n", clientFd);
 			break;
 		} else {
 			poczatek = 0;
@@ -551,6 +577,7 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 					break;
 				}
 			}
+			zwolnijPamiecPlansz(&(*it));
 			pokojeGier.erase(it);
 		}
 		
@@ -803,9 +830,14 @@ void setReuseAddr(int sock){
 }
 
 void ctrl_c(int){
+	// zamykanie gniazd i usuwanie deskryptorow
 	for(int clientFd : clientFds)
 		close(clientFd);
 	close(servFd);
+	
+	// usuwanie z pamieci listy pokoi
+	pokojeGier.clear();
+	
 	printf("\nZamykanie serwera\n");
 	exit(0);
 }
@@ -820,15 +852,7 @@ void ustawNowaGre(room &pokoj, int wysokoscPlanszy, int szerokoscPlanszy, int li
 	
 	// zwolnienie pamieci po porzedniej grze
 	if(pokoj.liczbaGraczy > 0) {
-		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
-			delete[]pokoj.stanPlanszy[row];
-		}
-		delete[]pokoj.stanPlanszy;
-		
-		for(row = 0; row < pokoj.wysokoscPlanszy; row++) {
-			delete[]pokoj.plansza[row];
-		}
-		delete[]pokoj.plansza;
+		zwolnijPamiecPlansz(&pokoj);
 	}
 	
 	if((wysokoscPlanszy <= 1) || (wysokoscPlanszy > 200)) {
@@ -1053,4 +1077,30 @@ void wyslijDane(int fd, char *buffer, int count){
 	int ret = write(fd, buffer, count);
 	if(ret == -1) error(1, errno, "Blad funkcji write() na kliencie %d", fd);
 	if(ret != count) error(0, errno, "Blad funkcji write() na kliencie %d - zapisano mniej danych niz oczekiwano: (%d/%d)", fd, count, ret);
+}
+
+int ideksKlientaWPokoju(int clientFd, room *pokoj) {
+	int i;
+	
+	for(i = 0; i < pokoj->liczbaGraczy; i++) {
+		if(pokoj->gracze[i] == clientFd) {
+			return i;
+		}
+	}
+	
+	return -1;
+}
+
+void zwolnijPamiecPlansz(room *pokoj) {
+	int row;
+	
+	for(row = 0; row < pokoj->wysokoscPlanszy; row++) {
+		delete[]pokoj->stanPlanszy[row];
+	}
+	delete[]pokoj->stanPlanszy;
+	
+	for(row = 0; row < pokoj->wysokoscPlanszy; row++) {
+		delete[]pokoj->plansza[row];
+	}
+	delete[]pokoj->plansza;
 }

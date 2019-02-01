@@ -190,7 +190,7 @@ void czytajZSerwera(int sock)
 			printf("Trwa zamykanie programu...\n");
 			
 			close(sock);
-			error(1,0,"Serwer zostal wylaczony.\nKoniec gry.\n");
+			error(1,0,"Serwer zostal wylaczony.\nUruchom program ponownie.\n");
 		}
 		
 		poczatek = 0;
