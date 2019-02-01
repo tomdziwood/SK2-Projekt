@@ -33,6 +33,16 @@ void czytajZSerwera(int sock)
     {
         received = odbierzDane(sock, buffer, buffsize);
 		buffer[received] = '\0';
+		
+		if(received == 0) {
+			system("clear");
+			printf("Serwer zostal wylaczony.\n");
+			printf("Trwa zamykanie programu...\n");
+			
+			close(sock);
+			error(1,0,"Serwer zostal wylaczony.\nKoniec gry.\n");
+		}
+		
 		printf("\n//-------------------- ");
 		printf("\n//---- Nowy komunikat o dlugosci %d ----\\\\\n", received);
 		printf("|%s|\n", buffer);
