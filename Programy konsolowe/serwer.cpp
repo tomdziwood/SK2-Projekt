@@ -10,6 +10,7 @@
 #include <sys/epoll.h>
 #include <poll.h> 
 #include <thread>
+#include <mutex>
 #include <unordered_set>
 #include <list>
 #include <stack>
@@ -34,6 +35,9 @@ std::unordered_set<int> clientFds;
 // przechowywanie informacji o aktywnych grach
 std::list<room> pokojeGier;
 int liczbaGier = 0;
+
+// semafor zabezpiezpieczajacy przed modyfikowaniem parametrow gier przez wiecej niz jeden watek
+std::mutex mtx;
 
 // handles SIGINT
 void ctrl_c(int);
@@ -166,6 +170,8 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 	
 	
 	kod = strtol(buffer, &tresc, 10);
+	std::unique_lock<std::mutex> lck(mtx,std::defer_lock);
+	lck.lock();
 	
 	if(kod == 1) {
 		// klient prosi o utworzenie nowego pokoju gry
@@ -773,6 +779,8 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		printf("Zakonczono odkrywanie pol dookola wskazanego pola z liczba.\n");
 	}
+	
+	lck.unlock();
 }
 
 int main(int argc, char ** argv){
