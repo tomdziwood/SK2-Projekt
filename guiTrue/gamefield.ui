@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GameField</class>
+ <widget class="QDialog" name="GameField">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>473</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <widget class="QTableWidget" name="tableWidget">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>20</y>
+     <width>341</width>
+     <height>271</height>
+    </rect>
+   </property>
+   <property name="rowCount">
+    <number>1</number>
+   </property>
+   <property name="columnCount">
+    <number>2</number>
+   </property>
+   <attribute name="horizontalHeaderDefaultSectionSize">
+    <number>20</number>
+   </attribute>
+   <attribute name="horizontalHeaderMinimumSectionSize">
+    <number>20</number>
+   </attribute>
+   <attribute name="verticalHeaderDefaultSectionSize">
+    <number>23</number>
+   </attribute>
+   <attribute name="verticalHeaderMinimumSectionSize">
+    <number>20</number>
+   </attribute>
+   <row/>
+   <column/>
+   <column/>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>340</y>
+     <width>47</width>
+     <height>13</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>TextLabel</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
