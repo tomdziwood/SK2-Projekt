@@ -29,12 +29,14 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     gamefield.cpp \
-    klient_saper.cpp
+    klient_saper.cpp \
+    room.cpp
 
 HEADERS += \
         mainwindow.h \
     gamefield.h \
-    klient_saper.h
+    klient_saper.h \
+    room.h
 
 FORMS += \
         mainwindow.ui \

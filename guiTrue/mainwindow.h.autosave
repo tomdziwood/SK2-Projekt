@@ -27,6 +27,8 @@ private slots:
 
     void connected();
 
+    void on_tableWidget_cellClicked(int row, int column);
+    
 public slots:
     void readData();
 

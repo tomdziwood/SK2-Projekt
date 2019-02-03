@@ -19,7 +19,7 @@
      <rect>
       <x>10</x>
       <y>30</y>
-      <width>256</width>
+      <width>131</width>
       <height>121</height>
      </rect>
     </property>
@@ -27,7 +27,7 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>190</x>
+      <x>40</x>
       <y>10</y>
       <width>47</width>
       <height>13</height>
@@ -98,6 +98,21 @@
     <property name="text">
      <string>odswiez</string>
     </property>
+   </widget>
+   <widget class="QTableWidget" name="tableWidget">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>30</y>
+      <width>201</width>
+      <height>121</height>
+     </rect>
+    </property>
+    <property name="columnCount">
+     <number>2</number>
+    </property>
+    <column/>
+    <column/>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">

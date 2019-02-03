@@ -102,3 +102,8 @@ void MainWindow::on_buttonRefresh_clicked()
     //else ui->listWidget->addItem("nie");
     //ui->listWidget->addItem(tcpSocket->readLine());
 }
+
+void MainWindow::on_tableWidget_cellClicked(int row, int column)
+{
+    
+}
