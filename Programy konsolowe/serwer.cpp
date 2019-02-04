@@ -183,6 +183,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj != NULL) {
 			printf("Blad - nie mozna utworzyc nowego pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna utworzyc nowego pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -236,6 +243,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj != NULL) {
 			printf("Blad - nie mozna pytac sie o spis dostepnych pokoi, skoro nadal sie gra w jednym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna pytac sie o spis dostepnych pokoi, skoro nadal sie gra w jednym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -246,22 +260,24 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		strcpy(buffer, "01 ");
 		std::list<room>::iterator it;
 		for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-			// zapisanie do wiadomosci id pokoju
-			itoa(it->id, tmpBuffer, 10);
-			strcpy(&buffer[3], tmpBuffer);
-			
-			// zapisanie do wiadomosci nazwy pokoju
-			count = strlen(buffer);
-			buffer[count] = ' ';
-			strcpy(&buffer[count + 1], it->nazwa);
-			
-			// zakonczenie wiadomosci znakiem konca lini
-			zakonczWiadomoscZnakiemKoncaLini(buffer);
-			
-			// wyslanie wiadomosci
-			count = strlen(buffer);
-			//write(clientFd, buffer, count);
-			wyslijDane(clientFd, buffer, count);
+			if(it->liczbaGraczy < 16) {
+				// zapisanie do wiadomosci id pokoju
+				itoa(it->id, tmpBuffer, 10);
+				strcpy(&buffer[3], tmpBuffer);
+				
+				// zapisanie do wiadomosci nazwy pokoju
+				count = strlen(buffer);
+				buffer[count] = ' ';
+				strcpy(&buffer[count + 1], it->nazwa);
+				
+				// zakonczenie wiadomosci znakiem konca lini
+				zakonczWiadomoscZnakiemKoncaLini(buffer);
+				
+				// wyslanie wiadomosci
+				count = strlen(buffer);
+				//write(clientFd, buffer, count);
+				wyslijDane(clientFd, buffer, count);
+			}
 		}
 		
 		// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
@@ -278,6 +294,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj != NULL) {
 			printf("Blad - nie mozna dolaczac sie do pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna dolaczac sie do pokoju, skoro nadal sie gra w jednym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -290,6 +313,25 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(it == pokojeGier.end()) {
 			printf("Blad - klient %d prosi o nieistniejacy pokoj.\n", clientFd);
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - prosba o nieistniejacy pokoj.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
+			return;
+		}
+		
+		if(it->liczbaGraczy == 16) {
+			printf("Blad - klient %d prosi o dolaczenie do pelnego pokoju.\n", clientFd);
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - prosba o dolaczenie do pelnego pokoju.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -352,21 +394,49 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna zadac oznaczenia flagi, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna zadac oznaczenia flagi, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanGry != 1) {
 			printf("Blad - gra juz sie zakonczyla.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - gra juz sie zakonczyla.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanPlanszy[row][col] != 0) {
 			printf("Blad - flage mozna oznaczyc tylko na nieoznaczonym polu.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - flage mozna oznaczyc tylko na nieoznaczonym polu.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -400,21 +470,49 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna zadac oznaczenia znaku zapytania, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna zadac oznaczenia znaku zapytania, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanGry != 1) {
 			printf("Blad - gra juz sie zakonczyla.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - gra juz sie zakonczyla.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanPlanszy[row][col] != 1) {
 			printf("Blad - znak zapytania mozna oznaczyc tylko na polu oznaczonym flaga.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - znak zapytania mozna oznaczyc tylko na polu oznaczonym flaga.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -448,21 +546,49 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanGry != 1) {
 			printf("Blad - gra juz sie zakonczyla.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - gra juz sie zakonczyla.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanPlanszy[row][col] != 2) {
 			printf("Blad - nieoznaczyc mozna tylko pole oznaczone znakiem zapytania.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nieoznaczyc mozna tylko pole oznaczone znakiem zapytania.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -490,21 +616,49 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna zadac nieoznaczenia pola, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanGry != 1) {
 			printf("Blad - gra juz sie zakonczyla.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - gra juz sie zakonczyla.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((biezacyPokoj->stanPlanszy[row][col] == 1) || (biezacyPokoj->stanPlanszy[row][col] == 3)) {
 			printf("Blad - odkryc mozna tylko pole nieoznaczone lub oznaczone znakiem zapytania.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - odkryc mozna tylko pole nieoznaczone lub oznaczone znakiem zapytania.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -566,6 +720,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna opuscic pokoju, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna opuscic pokoju, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -600,22 +761,24 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		std::list<room>::iterator it;
 		for(it = pokojeGier.begin(); it != pokojeGier.end(); it++) {
-			// zapisanie do wiadomosci id pokoju
-			itoa(it->id, tmpBuffer, 10);
-			strcpy(&buffer[3], tmpBuffer);
-			
-			// zapisanie do wiadomosci nazwy pokoju
-			count = strlen(buffer);
-			buffer[count] = ' ';
-			strcpy(&buffer[count + 1], it->nazwa);
-			
-			// zakonczenie wiadomosci znakiem konca lini
-			zakonczWiadomoscZnakiemKoncaLini(buffer);
-			
-			// wyslanie wiadomosci
-			count = strlen(buffer);
-			//write(clientFd, buffer, count);
-			wyslijDane(clientFd, buffer, count);
+			if(it->liczbaGraczy < 16) {
+				// zapisanie do wiadomosci id pokoju
+				itoa(it->id, tmpBuffer, 10);
+				strcpy(&buffer[3], tmpBuffer);
+				
+				// zapisanie do wiadomosci nazwy pokoju
+				count = strlen(buffer);
+				buffer[count] = ' ';
+				strcpy(&buffer[count + 1], it->nazwa);
+				
+				// zakonczenie wiadomosci znakiem konca lini
+				zakonczWiadomoscZnakiemKoncaLini(buffer);
+				
+				// wyslanie wiadomosci
+				count = strlen(buffer);
+				//write(clientFd, buffer, count);
+				wyslijDane(clientFd, buffer, count);
+			}
 		}
 		
 		// wyslanie sygnalu o zakonczeniu wysylania listy pokoi
@@ -631,6 +794,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna restartowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna restartowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -656,6 +826,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna modyfikowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna modyfikowac planszy, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -691,21 +868,49 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(biezacyPokoj == NULL) {
 			printf("Blad - nie mozna odkrywac pol, skoro nie gra sie w zadnym z pokojow.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - nie mozna odkrywac pol, skoro nie gra sie w zadnym z pokojow.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if(biezacyPokoj->stanGry != 1) {
 			printf("Blad - gra juz sie zakonczyla.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - gra juz sie zakonczyla.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((row < 0) || (row >= biezacyPokoj->wysokoscPlanszy) || (col < 0) || (col >= biezacyPokoj->szerokoscPlanszy)) {
 			printf("Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - wskazane pole nie znajduje sie w zakresie planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
 		if((biezacyPokoj->stanPlanszy[row][col] != 3) || (biezacyPokoj->plansza[row][col] <= 0)) {
 			printf("Blad - odkrywac mozna tylko na podstawie odkrytej juz liczby na planszy.\n");
+		
+			// wyslanie sygnalu o bledzie
+			strcpy(buffer, "11Blad - odkrywac mozna tylko na podstawie odkrytej juz liczby na planszy.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -720,6 +925,13 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		
 		if(count != biezacyPokoj->plansza[row][col]) {
 			printf("Blad - liczba oznaczonych dookola flag nie zgadza sie z liczba w polu (%d, %d).\n", row, col);
+		
+			// wyslanie sygnalu o przeslaniu niezrozumialej komendy
+			strcpy(buffer, "11Blad - liczba oznaczonych dookola flag nie zgadza sie z liczba we wskazanym polu.\n");
+			count = strlen(buffer);
+			wyslijDane(clientFd, buffer, count);
+			
+			lck.unlock();
 			return;
 		}
 		
@@ -778,6 +990,17 @@ void zinterpretujKomendeKlienta(int clientFd, char *buffer, int *tablica, room *
 		wyslijLiczbyDoWszystkich(biezacyPokoj, tablica, 0, buffer, tmpBuffer);
 		
 		printf("Zakonczono odkrywanie pol dookola wskazanego pola z liczba.\n");
+	} else {
+		// klient wyslal niezrozumiala komende
+		printf("Blad - podana komenda jest niezrozumiala.\n");
+		
+		// wyslanie sygnalu o przeslaniu niezrozumialej komendy
+		strcpy(buffer, "11Blad - podana komenda jest niezrozumiala.\n");
+		count = strlen(buffer);
+		wyslijDane(clientFd, buffer, count);
+		
+		lck.unlock();
+		return;
 	}
 	
 	lck.unlock();

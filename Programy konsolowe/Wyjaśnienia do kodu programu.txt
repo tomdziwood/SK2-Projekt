@@ -43,6 +43,8 @@
 		Format: ("09")
 10 - podanie sygnalu, ¿e zakoñczono przesy³anie dostêpnych pokojów
 		Format: ("10")
+11 - podanie komunikatu b³êdu zwi¹zanego z wys³an¹ komend¹
+		Format: ("11 %s", komunikat bledu)
 
 ////-------- Stan pola planszy --------\\\\
 0 - zakryte

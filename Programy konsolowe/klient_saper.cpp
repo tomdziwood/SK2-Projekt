@@ -98,7 +98,17 @@ void rysujGre() {
 	
 	system("clear");
 	
-	printf("Liczba min do oznaczenia:\t%d\n\n", pokoj.liczbaMinDoOznaczenia);
+	printf("Liczba min do oznaczenia:\t%d\t\t", pokoj.liczbaMinDoOznaczenia);
+	
+	if(pokoj.stanGry == 0) {
+		printf("Przegrana!");
+	} else if(pokoj.stanGry == 1) {
+		printf("Gra w toku...");
+	} else {
+		printf("Wygrana!");
+	}
+	
+	printf("\n\n");
 	
 	for(row = liczbaCyfr; row > 0; row--) {
 		printf("      ");
@@ -187,7 +197,7 @@ void czytajZSerwera(int sock)
 		if(received == 0) {
 			system("clear");
 			printf("Serwer zostal wylaczony.\n");
-			printf("Trwa zamykanie programu...\n");
+			printf("Trwa zamykanie programu...\n\n");
 			
 			close(sock);
 			error(1,0,"Serwer zostal wylaczony.\nUruchom program ponownie.\n");
@@ -310,6 +320,11 @@ void czytajZSerwera(int sock)
 				} else if(kod == 10) {
 					// serwer daje znac, ze zakonczyl juz przesylanie listy dostepnych serwerow
 					rysujDostepneKomendy();
+					
+					
+				} else if(kod == 11) {
+					// serwer daje znac, ze wystapil blad
+					printf("//**** %s ****\\\\\n\n", tresc);
 				}
 			}
 		}
